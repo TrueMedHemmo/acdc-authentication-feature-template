@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>PSK App Core</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link href="truemed-styles.css" rel="stylesheet" type="text/css">
+
+    <!-- Ionic dist -->
+    <link rel="stylesheet" href="assets/ionic-core/css/ionic.bundle.css">
+
+    </script>
+</head>
+
+<body>
+    <div style="position:relative;">
+        <!--<img style="width:100%;height:auto;" id="camera-preview" />-->
+        <div style="position:relative;">
+            <!-- Camera feed -->
+            <canvas id="cvCanvas" style="width:100%;height:auto;"></canvas>
+
+             <!-- AR marker -->
+            <div id="target-marker">
+                <div id="target"></div>
+            </div>
+
+            <!-- Spirit level indicators-->
+            <div class="spirit-bar">
+                <div id="spirit-horizontal" class="spirit-mover">
+                    <div class="spirit-indicator"></div>
+                </div>
+            </div>
+            <div class="spirit-bar vertical">
+                <div id="spirit-vertical" class="spirit-mover">
+                    <div class="spirit-indicator"></div>
+                </div>
+            </div>
+            <!-- Package outline-->
+            <div id="target-box">
+                <div id="box"></div>
+            </div>
+
+           
+            
+            <div id="reticle"></div>
+
+            <!-- Progress indicator -->
+            <svg
+                class="progress-ring"
+                width="120"
+                height="120">
+                <circle
+                    class="progress-ring__circle"
+                    stroke="white"
+                    stroke-width="4"
+                    fill="transparent"
+                    r="52"
+                    cx="60"
+                    cy="60"/>
+            </svg>
+            <!--
+                <progress-ring style="position:absolute;transform: translate(-50%, -50%);left:50%;top:50%;" :radius="60" :progress="progress" :stroke="3"></progress-ring>
+            -->
+        </div>
+    </div>
+</body>
+</html>
