@@ -1,7 +1,7 @@
 {
-  "name": "authentication-feature-template",
+  "name": "authentication-feature-truemed",
   "version": "1.0.0",
-  "description": "Authentication Feature Template",
+  "description": "Authentication Feature TrueMed",
   "scripts": {
     "prebuild": "node ./node_modules/octopus/scripts/run prebuild devmode",
     "build": "node ./node_modules/octopus/scripts/buildDossier ./bin/build.file --domain=epi",
@@ -11,9 +11,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/PharmaLedger-IMI/acdc-authentication-feature-template.git "
+    "url": "git+https://github.com/TrueMedHemmo/acdc-authentication-feature-template.git "
   },
-  "dependencies": {},
   "devDependencies": {
     "octopus": "git+https://github.com/PrivateSky/octopus.git",
     "ionicons": "^5.5.1",
@@ -27,5 +26,8 @@
     "ssapp"
   ],
   "license": "MIT",
-  "homepage": "https://github.com/PharmaLedger-IMI/acdc-authentication-feature-template"
+  "homepage": "https://github.com/TrueMedHemmo/acdc-authentication-feature-template",
+  "dependencies": {
+    "opencv.js": "^1.2.1"
+  }
 }

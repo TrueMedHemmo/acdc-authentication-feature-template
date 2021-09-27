@@ -8,6 +8,7 @@
     "expiry": "Expiration Date:"
   },
   "buttons": {
-    "scan": "Scan"
+    "scan": "Scan",
+    "native": "Native"
   }
 }

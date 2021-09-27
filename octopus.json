@@ -102,14 +102,6 @@
         },
         {
           "type": "copy",
-          "src": "../pdm-web-components/dist/pdm-web-components",
-          "target": "./src/code/assets/pdm-web-components",
-          "options": {
-            "overwrite": true
-          }
-        },
-        {
-          "type": "copy",
           "src": "../pdm-web-components/css/globalStyles.css",
           "target": "./src/code/assets/skin.css",
           "options": {
@@ -120,6 +112,20 @@
           "type": "copy",
           "src": "../native-integration/build/bundles/default/camera.js",
           "target": "src/code/scripts/bundles/camera.js",
+          "options": {
+            "overwrite": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "Copy TrueMed Dependencies",
+      "src": "",
+      "actions": [
+        {
+          "type": "copy",
+          "src": "./node_modules/opencv.js/opencv.js",
+          "target": "./src/code/opencv.js",
           "options": {
             "overwrite": true
           }

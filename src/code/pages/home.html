@@ -1,63 +1,58 @@
 <webc-container controller="HomeController" translations="true">
     <ion-app>
-        <ion-header class="ion-no-border ion-padding">
-            <ion-grid>
-                <ion-row>
-                    <ion-col>
-                        <ion-row class="ion-justify-content-between">
-                            <div class="flex flex-col ion-padding-start top-bar-text">
-                                {{ $title }}
-                            </div>
-                        </ion-row>
-                    </ion-col>
-                </ion-row>
-            </ion-grid>
-        </ion-header>
-        <ion-grid>
-            <ion-row class="full-height">
-                <ion-col>
-                    <ion-tabs id="main-content">
-                        <ion-tab tab="tab-dashboard">
-                            <ion-content class="tab-content ion-padding" overflow-scroll="true">
-                                <ion-card color="primary">
-                                    <ion-card-header class="ion-padding ion-margin-horizontal">
-                                        <ion-card-subtitle>
-                                            {{ @product.manufName }}
-                                        </ion-card-subtitle>
-                                        <ion-card-title>
-                                            {{ @product.name }}
-                                        </ion-card-title>
-                                    </ion-card-header>
-                                    <ion-card-content>
-                                        <ion-item lines="none">
-                                            <ion-label position="stacked">{{ $details.productCode }}</ion-label>
-                                            <ion-input type="text" disabled="true" value="@gs1Data.gtin"></ion-input>
-                                        </ion-item>
-                                        <ion-item lines="none">
-                                            <ion-label position="stacked">{{ $details.batchNumber }}</ion-label>
-                                            <ion-input type="text" disabled="true" value="@gs1Data.batchNumber"></ion-input>
-                                        </ion-item>
-                                        <ion-item lines="none">
-                                            <ion-label position="stacked">{{ $details.serialNumber }}</ion-label>
-                                            <ion-input type="text" disabled="true" value="@gs1Data.serialNumber"></ion-input>
-                                        </ion-item>
-                                        <ion-item lines="none">
-                                            <ion-label position="stacked">{{ $details.expiry }}</ion-label>
-                                            <ion-input type="text" disabled="true" value="@batch.expiry"></ion-input>
-                                        </ion-item>
-                                    </ion-card-content>
-                                </ion-card>
-                                <ion-buttons class="ion-margin-top">
-                                    <ion-button slot="primary" size="large" expand="block" fill="solid" color="secondary" data-tag="scan">
-                                        {{ $buttons.scan }}
-                                    </ion-button>
-                                </ion-buttons>
-                            </ion-content>
-                        </ion-tab>
-                    </ion-tabs>
-                </ion-col>
-            </ion-row>
-        </ion-grid>
-        <pdm-barcode-scanner-controller barcode-title="$scan-title"></pdm-barcode-scanner-controller>
+        <!--<img style="width:100%;height:auto;" id="camera-preview" />-->
+        <div style="position:relative;">
+            <!-- Camera feed -->
+            <canvas id="cvCanvas" style="width:100%;height:auto;"></canvas>
+
+             <!-- AR marker -->
+            <div id="target-marker">
+                <div id="target"></div>
+            </div>
+
+            <!-- Spirit level indicators-->
+            <div class="spirit-bar">
+                <div id="spirit-horizontal" class="spirit-mover">
+                    <div class="spirit-indicator"></div>
+                </div>
+            </div>
+            <div class="spirit-bar vertical">
+                <div id="spirit-vertical" class="spirit-mover">
+                    <div class="spirit-indicator"></div>
+                </div>
+            </div>
+            <!-- Package outline-->
+            <div id="target-box">
+                <div id="box"></div>
+            </div>
+
+           
+            
+            <div id="reticle"></div>
+
+            <!-- Progress indicator -->
+            <svg
+                class="progress-ring"
+                width="120"
+                height="120">
+                <circle
+                    class="progress-ring__circle"
+                    stroke="white"
+                    stroke-width="4"
+                    fill="transparent"
+                    r="52"
+                    cx="60"
+                    cy="60"/>
+            </svg>
+            <!--
+                <progress-ring style="position:absolute;transform: translate(-50%, -50%);left:50%;top:50%;" :radius="60" :progress="progress" :stroke="3"></progress-ring>
+            -->
+        </div>
+
+        <!-- Debug
+        <ion-button slot="secondary" size="large" expand="block" fill="solid" color="tertiary" data-tag="native">
+            {{ $buttons.scan }}
+        </ion-button>
+        -->
     </ion-app>
 </webc-container>

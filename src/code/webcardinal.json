@@ -10,6 +10,13 @@
       "src": "home.html",
       "indexed": false,
       "tag": "home"
+    },
+    {
+      "name": "Native",
+      "path": "./native",
+      "src": "native.html",
+      "indexed": false,
+      "tag": "native"
     }
   ]
 }
