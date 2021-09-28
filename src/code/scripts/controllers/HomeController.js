@@ -114,6 +114,9 @@ function compareY (a, b) {
 
 export default class HomeController extends WebcController{
     elements = {};
+    takenPictures = [];
+    cropPictures = [];
+    images = [];
 
 
     constructor(element, history, ...args) {
@@ -124,6 +127,7 @@ export default class HomeController extends WebcController{
         const self = this;
         
         // Initiating TrueMed related
+        this.takingPicture = false;
         this.callback = null;
         this.targetMarker = null;
         this.targetHeight = 48;
@@ -150,9 +154,8 @@ export default class HomeController extends WebcController{
         this.showSpirit = true;
 
 
-        // TODO: Remove unneeded bindings
-        this.onTagClick('native', () => {
-            this.navigateToPageTag('native');
+        this.onTagClick('send', () => {
+            this.sendForAnalysis();
         })
 
         // Retrieve product based on code
@@ -194,6 +197,20 @@ export default class HomeController extends WebcController{
 
         this.elements.progressCircle.style.strokeDasharray = `${this.circumference} ${this.circumference}`;
         this.elements.progressCircle.style.strokeDashoffset = `${this.circumference}`;
+        
+        for(let i = 1; i < 6; i++){
+            let selector = '#taken-picture-'+i;
+            this.takenPictures.push(this.element.querySelector(selector));
+        }
+
+        for(let i = 1; i < 6; i++){
+            let selector = '#crop-picture-'+i;
+            this.cropPictures.push(this.element.querySelector(selector));
+        }
+        
+        this.elements.maskCanvas = this.element.querySelector('#maskCanvas');
+
+        this.elements.cropView = this.element.querySelector('#crop-view');
 
         const config = new PLCameraConfig("photo",
             "torch", true, true,
@@ -237,9 +254,8 @@ export default class HomeController extends WebcController{
     onFrameGrabbed(plImage, elapsedTime){
 
     }
-    onPictureTaken(base64ImageData){
 
-    }
+    
 
     placeUint8RGBArrayInCanvas(canvasElem, array, w, h) {
         let a = 1;
@@ -261,7 +277,6 @@ export default class HomeController extends WebcController{
     }
 
     onFramePreview(rgbImage, elapsedTime) {
-        //this.Uint8ArrayToCanvas(new Uint8Array(rgbImage.arrayBuffer), rgbImage.width, rgbImage.height, 'cvCanvas');
         this.placeUint8RGBArrayInCanvas(this.elements.canvas, new Uint8Array(rgbImage.arrayBuffer), rgbImage.width, rgbImage.height);
 
         let context = this.elements.canvas.getContext("2d");
@@ -389,63 +404,66 @@ export default class HomeController extends WebcController{
   
             this.elements.target.style.transform = 'translate(' + this.x + '%, ' + this.y + '%)';
   
-            // Let's see if our camera is centered to the target
-            let positionOK = center.x < 0.52 && center.x > 0.48 && center.y < 0.52 && center.y > 0.48;
-  
-            // Section: Angle check
-            let angle = frame.getAngle();
-            let angleOK = false;
-            let angleDirectionRight = null;
-            let angleThreshold = 3.5;
-  
-            if (angle > 45 && angle < 90 - angleThreshold) {
-                angleDirectionRight = true;
-            } else if (angle <= 45 && angle > angleThreshold) {
-                angleDirectionRight = false;
-            } else {
-                angleOK = true;
-            }
-  
-            // Layered error handling
-            // We start with angle check
-            if (positionOK && !angleOK) {
-                this.reticleError = true;
-                this.targetError = false;
-            } else {
-                this.reticleError = false;
-  
-                // Distance check
-                if (positionOK && !sizeOK) {
-                    this.targetError = true;
-  
-                // TODO: Add distinctive effects for when target is far away and when target is too close
-                } else {
-                    this.targetError = false;
-                }
-            }
+            if(!this.takingPicture){
 
-            if(this.targetError){
-                this.elements.targetBox.style['border-color'] = 'red';
-            }else{
-                this.elements.targetBox.style['border-color'] = 'white';
-            }
-  
-            // TODO: Standardize this to a set timing async routine and account for aspect ratios
-            if (positionOK && sizeOK && angleOK) {
-                this.progress += 100 / 60 * 3;
-                if (this.progress > 100) {
-                    this.progress = 0;
-                    this.imageIndex++;
-                    if (this.imageIndex > 4) {
-                        this.imageIndex = 0;
+                // Let's see if our camera is centered to the target
+                let positionOK = center.x < 0.52 && center.x > 0.48 && center.y < 0.52 && center.y > 0.48;
+    
+                // Section: Angle check
+                let angle = frame.getAngle();
+                let angleOK = false;
+                let angleDirectionRight = null;
+                let angleThreshold = 3.5;
+    
+                if (angle > 45 && angle < 90 - angleThreshold) {
+                    angleDirectionRight = true;
+                } else if (angle <= 45 && angle > angleThreshold) {
+                    angleDirectionRight = false;
+                } else {
+                    angleOK = true;
+                }
+    
+                // Layered error handling
+                // We start with angle check
+                if (positionOK && !angleOK) {
+                    this.reticleError = true;
+                    this.targetError = false;
+                } else {
+                    this.reticleError = false;
+    
+                    // Distance check
+                    if (positionOK && !sizeOK) {
+                        this.targetError = true;
+    
+                    // TODO: Add distinctive effects for when target is far away and when target is too close
+                    } else {
+                        this.targetError = false;
                     }
                 }
-            } else {
-                this.progress = 0;
-            }
 
-            const offset = this.circumference - this.progress / 100 * this.circumference;
-            this.elements.progressCircle.style.strokeDashoffset = offset;
+                if(this.targetError){
+                    this.elements.targetBox.style['border-color'] = 'red';
+                }else{
+                    this.elements.targetBox.style['border-color'] = 'white';
+                }
+    
+                // TODO: Standardize this to a set timing async routine and account for aspect ratios
+                if (positionOK && sizeOK && angleOK) {
+                    this.progress += 100 / 60 * 3;
+                    if (this.progress > 100) {
+                        console.log('progress is 100');
+                        this.progress = 100;
+                        this.takePicture().then(() => {
+                            console.log('boom');
+                        });
+                    }
+                } else {
+                    this.progress = 0;
+                }
+
+                const offset = this.circumference - this.progress / 100 * this.circumference;
+                this.elements.progressCircle.style.strokeDashoffset = offset;
+            }
           }
         }
   
@@ -459,6 +477,169 @@ export default class HomeController extends WebcController{
         // let image = this.canvas.toDataURL('image/png')
         // console.log(image)
         
+    }
+
+    async takePicture(){
+        console.log("Inside the takePicture func");
+        this.takingPicture = true;
+        await this.Camera.takePicture("mjpeg");
+    }
+
+    onPictureTaken(base64ImageData){
+        console.log("Success callback");
+        this.images.push(base64ImageData);
+        this.takingPicture = false;
+        this.progress = 0;
+        this.takenPictures[this.imageIndex].src = base64ImageData;
+        //let self = this;
+        //let index = this.imageIndex;
+        //setTimeout(function(){ self.cropProcess(index); }, 100);
+
+        this.imageIndex++;
+        if (this.imageIndex > 4) {
+            this.Camera.closeCameraStream();
+            this.imageIndex = 0;
+            this.elements.cropView.style.display = "block";
+            this.cropProcess(0);
+        }
+        
+    }
+
+    // Loops itself until it has processed all images
+    async cropProcess(index) {
+            var image = new Image();
+            let self = this;
+            image.onload = function() {
+                self.processPhoto(image, index).then(()=>{
+                    if(index < self.images.length){
+                        self.cropProcess(index+1);
+                    }else{
+                        console.log("Done");
+                    }
+                });
+            };
+            image.src = this.images[index];
+    }
+
+    async processPhoto(image, index){
+        this.elements.canvas.width = image.width;
+        this.elements.canvas.height = image.height;
+        let context = this.elements.canvas.getContext("2d");
+        context.drawImage(image, 0, 0);
+        let imgData = context.getImageData(0, 0, this.elements.canvas.width, this.elements.canvas.height);
+        
+        // Then, construct a cv.Mat:
+        let srcFull = cv.matFromImageData(imgData);
+        let src = cv.matFromImageData(imgData);
+
+        let top = 0;
+        let left = 0;
+        let right = srcFull.cols-1;
+        let bottom = srcFull.rows-1;
+
+        let width = Math.floor(src.cols/8);
+        let height = Math.floor(src.rows/8);
+        var size = new cv.Size(width, height);
+        cv.resize(src, src, size, 0, 0, cv.INTER_AREA);
+
+        // Apply edges
+        // let edges = tm.getMergedEdges(src)
+        let edges = tm.getEdges(src);
+
+        // Apply contours
+        let contours = tm.getContoursForEdges(edges);
+
+        // Find largest shapes if any discovered
+        if (contours.size() > 0) {
+            let bounds = new cv.Rect(5, 5, size.width - 5, size.height - 5);
+            let verticalBounds = true;
+            let horizontalBounds = true;
+            let largestContours = tm.getLargestContourIDs(contours, bounds, verticalBounds, horizontalBounds);
+            let contourArray = [contours.get(largestContours[0]), contours.get(largestContours[1])];
+
+            // Create frame data, this provides all information for analysis
+            var frame = new tm.FrameData(contourArray, size);
+
+            // If we found large contours
+            if (largestContours.length > 0) {
+                // Size of box
+                let rect = cv.minAreaRect(contours.get(largestContours[0]));
+                let boundingRect = cv.RotatedRect.boundingRect(rect);
+        
+                
+                // Debug data section, clear out later.
+                let corners = tm.getCornersForContour(contours.get(largestContours[0]));
+                if (corners != null) {
+                    let tmp = new cv.Mat();
+                    cv.cvtColor(edges, edges, cv.COLOR_GRAY2RGB, 0);
+        
+                    let points = [];
+                    for (let i = 0; i < corners.size(); ++i) {
+                        const ci = corners.get(i);
+                        for (let j = 0; j < ci.data32S.length; j += 2) {
+                            let p = {};
+                            p.x = ci.data32S[j];
+                            p.y = ci.data32S[j + 1];
+                            points.push(p);
+                        }
+                    }
+                    console.log(points)
+                    // Sort points so topmost points are first
+                    points.sort(compareY);
+                    top = points[0].y;
+                    bottom = points[points.length-1].y;
+        
+                    // Sort points so that leftmost points are first
+                    points.sort(compareX);
+                    left = points[0].x;
+                    right = points[points.length-1].x;
+                    
+                    let safeMargin = 100; //100 px safety margin
+
+                    left = left*8 - safeMargin;
+                    top = top*8 - safeMargin;
+                    right = right*8 + safeMargin;
+                    bottom = bottom*8 + safeMargin;
+
+                    /* Nifty for corner debugs
+                    let tl = new cv.Point(left, top);
+                    let tr = new cv.Point(right, top);
+                    let bl = new cv.Point(left, bottom);
+                    let br = new cv.Point(right, bottom);
+                    */
+                    let black = new cv.Scalar(0, 0, 0, 255);
+
+                    // Masking
+                    cv.rectangle(srcFull, new cv.Point(0, 0), new cv.Point(left, srcFull.rows-1), black, -1);
+                    cv.rectangle(srcFull, new cv.Point(0, 0), new cv.Point(srcFull.cols-1, top), black, -1);
+                    cv.rectangle(srcFull, new cv.Point(right, 0), new cv.Point(srcFull.cols-1, srcFull.rows-1), black, -1);
+                    cv.rectangle(srcFull, new cv.Point(0, bottom), new cv.Point(srcFull.cols-1, srcFull.rows-1), black, -1);
+                    /*
+                    cv.circle(edges, tl, 10, new cv.Scalar(255, 0, 0), 3);
+                    cv.circle(edges, tr, 10, new cv.Scalar(255, 0, 0), 3);
+                    cv.circle(edges, bl, 10, new cv.Scalar(255, 0, 0), 3);
+                    cv.circle(edges, br, 10, new cv.Scalar(255, 0, 0), 3);
+                    */
+
+
+
+                    //cv.drawContours(edges, corners, -1, new cv.Scalar(255, 0, 0), 4, 8, tmp, 0)
+                    corners.delete();
+                    tmp.delete();
+                }
+            }
+        }
+
+        cv.imshow('cvCanvas', srcFull)
+        let finalImg = this.elements.canvas.toDataURL("image/png");
+        this.cropPictures[index].src = finalImg;
+        srcFull.delete();
+        src.delete();
+        edges.delete();
+    }
+
+    sendForAnalysis(){
+        console.log("Send pressed");
     }
 
 

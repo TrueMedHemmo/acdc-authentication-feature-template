@@ -1,7 +1,7 @@
 <webc-container controller="HomeController" translations="true">
     <ion-app>
         <!--<img style="width:100%;height:auto;" id="camera-preview" />-->
-        <div style="position:relative;">
+        <div id="camera-frame" style="position:relative;">
             <!-- Camera feed -->
             <canvas id="cvCanvas" style="width:100%;height:auto;"></canvas>
 
@@ -48,6 +48,31 @@
                 <progress-ring style="position:absolute;transform: translate(-50%, -50%);left:50%;top:50%;" :radius="60" :progress="progress" :stroke="3"></progress-ring>
             -->
         </div>
+        <div id="content">
+            <img id="taken-picture-1" style="width:15%;height:auto;margin:0;padding:0;"></img>
+            <img id="taken-picture-2" style="width:15%;height:auto;margin:0;padding:0;"></img>
+            <img id="taken-picture-3" style="width:15%;height:auto;margin:0;padding:0;"></img>
+            <img id="taken-picture-4" style="width:15%;height:auto;margin:0;padding:0;"></img>
+            <img id="taken-picture-5" style="width:15%;height:auto;margin:0;padding:0;"></img>
+        </div>
+        <ion-content id="crop-view" class="ion-padding" overflow-scroll="true" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;">
+            <div style="background-color:white;">
+                <img id="crop-picture-1" style="width:100%;height:auto;margin:0;padding:0;"></img>
+                <img id="crop-picture-2" style="width:100%;height:auto;margin:0;padding:0;"></img>
+                <img id="crop-picture-3" style="width:100%;height:auto;margin:0;padding:0;"></img>
+                <img id="crop-picture-4" style="width:100%;height:auto;margin:0;padding:0;"></img>
+                <img id="crop-picture-5" style="width:100%;height:auto;margin:0;padding:0;"></img>
+            </div>
+        </ion-content>
+        <ion-button id="send-btn" slot="secondary" size="large" expand="block" fill="solid" color="tertiary" data-tag="send" style="position:absolute;display:none;bottom:0;left:0;width:100%;">
+            Send
+        </ion-button>
+        <!--
+        <div id="crop-view" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;">
+            <div style="overflow-y:scroll;width:100%;">
+                
+            </div>
+        </div>-->
 
         <!-- Debug
         <ion-button slot="secondary" size="large" expand="block" fill="solid" color="tertiary" data-tag="native">
