@@ -94,30 +94,39 @@ const getBatchInfo = function(gtin, batchNumber,  callback){
 
 function compareY (a, b) {
     if (a.y < b.y) {
-      return -1
+        return -1;
     }
     if (a.y > b.y) {
-      return 1
+        return 1;
     }
-    return 0
-  }
+    return 0;
+}
   
-  function compareX (a, b) {
+function compareX (a, b) {
     if (a.x < b.x) {
-      return -1
+        return -1;
     }
     if (a.x > b.x) {
-      return 1
+        return 1;
     }
-    return 0
-  }
+    return 0;
+}
+
+function dataURLtoFile(dataurl, filename) {
+    var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+        bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+    while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new File([u8arr], filename, {type: mime});
+}
 
 export default class HomeController extends WebcController{
     elements = {};
     takenPictures = [];
     cropPictures = [];
     images = [];
-
+    files = [];
 
     constructor(element, history, ...args) {
         super(element, history, ...args);
@@ -209,8 +218,8 @@ export default class HomeController extends WebcController{
         }
         
         this.elements.maskCanvas = this.element.querySelector('#maskCanvas');
-
         this.elements.cropView = this.element.querySelector('#crop-view');
+        this.elements.sendBtn = this.element.querySelector('#send-btn');
 
         const config = new PLCameraConfig("photo",
             "torch", true, true,
@@ -480,13 +489,11 @@ export default class HomeController extends WebcController{
     }
 
     async takePicture(){
-        console.log("Inside the takePicture func");
         this.takingPicture = true;
         await this.Camera.takePicture("mjpeg");
     }
 
     onPictureTaken(base64ImageData){
-        console.log("Success callback");
         this.images.push(base64ImageData);
         this.takingPicture = false;
         this.progress = 0;
@@ -500,6 +507,7 @@ export default class HomeController extends WebcController{
             this.Camera.closeCameraStream();
             this.imageIndex = 0;
             this.elements.cropView.style.display = "block";
+            //this.elements.sendBtn.style.display = "block";
             this.cropProcess(0);
         }
         
@@ -511,10 +519,12 @@ export default class HomeController extends WebcController{
             let self = this;
             image.onload = function() {
                 self.processPhoto(image, index).then(()=>{
-                    if(index < self.images.length){
+                    if(index+1 < self.images.length){
                         self.cropProcess(index+1);
                     }else{
                         console.log("Done");
+                        //self.sendForAnalysis();
+                        self.elements.sendBtn.style.display = "block";
                     }
                 });
             };
@@ -548,30 +558,21 @@ export default class HomeController extends WebcController{
 
         // Apply contours
         let contours = tm.getContoursForEdges(edges);
-
+        edges.delete();
         // Find largest shapes if any discovered
         if (contours.size() > 0) {
             let bounds = new cv.Rect(5, 5, size.width - 5, size.height - 5);
             let verticalBounds = true;
             let horizontalBounds = true;
             let largestContours = tm.getLargestContourIDs(contours, bounds, verticalBounds, horizontalBounds);
-            let contourArray = [contours.get(largestContours[0]), contours.get(largestContours[1])];
-
-            // Create frame data, this provides all information for analysis
-            var frame = new tm.FrameData(contourArray, size);
 
             // If we found large contours
             if (largestContours.length > 0) {
-                // Size of box
-                let rect = cv.minAreaRect(contours.get(largestContours[0]));
-                let boundingRect = cv.RotatedRect.boundingRect(rect);
-        
                 
                 // Debug data section, clear out later.
                 let corners = tm.getCornersForContour(contours.get(largestContours[0]));
                 if (corners != null) {
-                    let tmp = new cv.Mat();
-                    cv.cvtColor(edges, edges, cv.COLOR_GRAY2RGB, 0);
+                    //cv.cvtColor(edges, edges, cv.COLOR_GRAY2RGB, 0);
         
                     let points = [];
                     for (let i = 0; i < corners.size(); ++i) {
@@ -583,7 +584,6 @@ export default class HomeController extends WebcController{
                             points.push(p);
                         }
                     }
-                    console.log(points)
                     // Sort points so topmost points are first
                     points.sort(compareY);
                     top = points[0].y;
@@ -625,21 +625,55 @@ export default class HomeController extends WebcController{
 
                     //cv.drawContours(edges, corners, -1, new cv.Scalar(255, 0, 0), 4, 8, tmp, 0)
                     corners.delete();
-                    tmp.delete();
                 }
             }
         }
-
-        cv.imshow('cvCanvas', srcFull)
-        let finalImg = this.elements.canvas.toDataURL("image/png");
-        this.cropPictures[index].src = finalImg;
+        cv.transpose(srcFull, srcFull);
+        cv.flip(srcFull, srcFull, 0);
+        cv.imshow('cvCanvas', srcFull);
         srcFull.delete();
         src.delete();
-        edges.delete();
+        
+        let finalImg = this.elements.canvas.toDataURL("image/jpeg");
+        //this.cropPictures[index].src = finalImg;
+        this.files.push(dataURLtoFile(finalImg, index+'.jpg'));
+        
     }
 
     sendForAnalysis(){
         console.log("Send pressed");
+        var data = new FormData();
+
+        for(let i = 0; i < this.files.length; i++){            
+            data.append("file", this.files[i]);
+        } 
+        data.append("device_id", "EPI");
+        data.append("latitude", "0");
+        data.append("longitude", "0");
+        data.append("scan_type", "package");
+        data.append("instance_id", "fc86067e-e39d-4807-bca9-9649ca0e45aa");
+
+        var xhr = new XMLHttpRequest();
+        xhr.withCredentials = true;
+
+        xhr.addEventListener("readystatechange", function() {
+            if(this.readyState === 4) {
+                console.log(this.responseText);
+            }
+        });
+
+        xhr.addEventListener('progress', function() {
+            console.log('progress');
+        });
+        xhr.addEventListener('error', function() {
+            console.log('error');
+        });
+
+        xhr.open("POST", "https://api-test.truemed.cloud/v1.0/scan/identify");
+        xhr.setRequestHeader('Cache-Control','no-cache');
+        xhr.setRequestHeader("X-API-KEY", "3efa4044-3638-4c97-8c57-d94f4ad7ba3d");
+        xhr.setRequestHeader("X-INSTALL-ID", "MTda17VfnVpZdrtPEun66aRYX5C2hT3qoYvhYJDbCaNxSjNxKiMoSG6CP2isWuooTbyh6AyD9B2J3vryV1");
+        xhr.send(data);
     }
 
 
