@@ -3,6 +3,9 @@ import tm from "../../tm.js";
 const {WebcController} = WebCardinal.controllers;
 const {constants, THREE, PLCameraConfig} = window.Native.Camera;
 
+const apiKey = "3efa4044-3638-4c97-8c57-d94f4ad7ba3d";
+const installId = "MTda17VfnVpZdrtPEun66aRYX5C2hT3qoYvhYJDbCaNxSjNxKiMoSG6CP2isWuooTbyh6AyD9B2J3vryV1";
+
 class AuthFeatureError {
     code = 0;
     message = undefined;
@@ -127,6 +130,7 @@ export default class HomeController extends WebcController{
     cropPictures = [];
     images = [];
     files = [];
+    ticketNumber = null;
 
     constructor(element, history, ...args) {
         super(element, history, ...args);
@@ -642,6 +646,8 @@ export default class HomeController extends WebcController{
 
     sendForAnalysis(){
         console.log("Send pressed");
+        let self = this;
+
         var data = new FormData();
 
         for(let i = 0; i < this.files.length; i++){            
@@ -659,8 +665,19 @@ export default class HomeController extends WebcController{
         xhr.addEventListener("readystatechange", function() {
             if(this.readyState === 4) {
                 console.log(this.responseText);
+                const response = JSON.parse(this.responseText);
+                console.log(response);
+                if(response.success){
+                    self.getTicket(response.data.ticket_number);
+                }else{
+                    console.log('no success');
+                }
+            } else {
+                console.log(this.readyState);
             }
         });
+
+        
 
         xhr.addEventListener('progress', function() {
             console.log('progress');
@@ -671,8 +688,128 @@ export default class HomeController extends WebcController{
 
         xhr.open("POST", "https://api-test.truemed.cloud/v1.0/scan/identify");
         xhr.setRequestHeader('Cache-Control','no-cache');
-        xhr.setRequestHeader("X-API-KEY", "3efa4044-3638-4c97-8c57-d94f4ad7ba3d");
-        xhr.setRequestHeader("X-INSTALL-ID", "MTda17VfnVpZdrtPEun66aRYX5C2hT3qoYvhYJDbCaNxSjNxKiMoSG6CP2isWuooTbyh6AyD9B2J3vryV1");
+        xhr.setRequestHeader("X-API-KEY", apiKey);
+        xhr.setRequestHeader("X-INSTALL-ID", installId);
+        xhr.send(data);
+    }
+
+    async waitForResults(){
+        /*
+        "data": {
+            "scan_result": {
+                "date_created": "Thu, 30 Sep 2021 09:19:45 GMT",
+                "estimated_time": "17.398610277286455",
+                "scan_status": "pending",
+                "ticket_number": "179eacc7-aad5-4a2d-9a32-8f590d0c994c"
+            }
+        },
+        "success": true
+        */
+
+        /*
+        "data": {
+            "scan_result": {
+                "adjusted_score": null,
+                "ai_version": "3.2.18r_DEV",
+                "aligned_loss_score": "0.0030597220174968243",
+                "aligned_ratio_diff_score": "0.012808561325073242",
+                "brand": {
+                    "name": "Benzatinor",
+                    "public_id": "db133391-4134-452a-8e5c-75580ef75ad5"
+                },
+                "confidence": "100",
+                "date_analysed": "Thu, 30 Sep 2021 09:21:31 GMT",
+                "date_created": "Thu, 30 Sep 2021 09:19:45 GMT",
+                "device_model": "SM-G960FS",
+                "diversion": true,
+                "estimated_time": "17.398610277286455",
+                "expected_result": null,
+                "instance": {
+                    "active_instance": true,
+                    "camera_distance": 0.0,
+                    "canny_max": 0,
+                    "canny_min": 0,
+                    "logo": "/instance_thumbnail/95d906cf-e139-4a7f-8123-116b5a7f870a.png",
+                    "metatags": "authentisch,feikkisch",
+                    "name": "Benzatinor Grano package_scantrained",
+                    "package_diameter": 0.0,
+                    "package_height": 78.0,
+                    "package_type": "package",
+                    "package_width": 58.0,
+                    "public_id": "fc86067e-e39d-4807-bca9-9649ca0e45aa",
+                    "threshold": 10000.0
+                },
+                "latitude": 0.0,
+                "light_level": 100.0,
+                "longitude": 0.0,
+                "organization": {
+                    "name": "TrueMed Ltd.",
+                    "public_id": "e33f0982-f7a0-4322-9824-bed40826e790"
+                },
+                "product": {
+                    "description": "This demo package sold in the US",
+                    "name": "Benzatinor demo package",
+                    "public_id": "61d78f0c-34e9-47ac-8311-5426d3c90a58"
+                },
+                "product_source_latitude": null,
+                "product_source_longitude": null,
+                "ratio_diff_score": "-0.051387906074523926",
+                "raw_score": "0.0",
+                "raw_score_colour": null,
+                "scan_image": "packages/0ab16817-59a3-4d57-ad34-3f73c8be6029",
+                "scan_status": "done",
+                "scan_type": "package",
+                "state": "done",
+                "status": "success",
+                "ticket_number": "179eacc7-aad5-4a2d-9a32-8f590d0c994c",
+                "user": {
+                    "first_name": "Hemmo",
+                    "last_name": "Latvala",
+                    "public_id": "1cf1c3d9-d92c-4af3-9353-245167cf9437"
+                }
+            }
+        },
+        */
+    }
+
+    getTicket(ticket){
+        let self = this;
+        var data = JSON.stringify({
+            "ticket_number": ticket
+        });
+        
+        var xhr = new XMLHttpRequest();
+        xhr.withCredentials = true;
+        
+        xhr.addEventListener("readystatechange", function() {
+            if(this.readyState === 4) {
+                const response = JSON.parse(this.responseText);
+                const status = response.data.scan_result.scan_status;
+                if(status == "pending"){
+                    setTimeout(function() {self.getTicket(ticket);}, 2000);
+                    //self.getTicket(ticket);
+                // Result complete
+                }else{
+                    const result = response.data.scan_result;
+                    //TODO: Catch errors from AI...
+
+                    // Authentic
+                    if(result.confidence == 100){
+                        self.report(true, undefined);
+                    // Counterfeit
+                    }else{
+                        self.report(false, "Package invalid");
+                    }
+                }
+            }
+        });
+        
+        xhr.open("POST", "https://api-test.truemed.cloud/v1.0/scan/tickets");
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.setRequestHeader('Cache-Control','no-cache');
+        xhr.setRequestHeader("X-API-KEY", apiKey);
+        xhr.setRequestHeader("X-INSTALL-ID", installId);
+
         xhr.send(data);
     }
 
