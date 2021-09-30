@@ -165,6 +165,7 @@ export default class HomeController extends WebcController{
         this.topBotRatio = 1;
         this.leftRightRatio = 1;
         this.showSpirit = true;
+        this.skipProcessing = false;
 
 
         this.onTagClick('send', () => {
@@ -194,6 +195,8 @@ export default class HomeController extends WebcController{
         )
         this.elements.cameraPreview = this.element.querySelector('#camera-preview');
         this.elements.canvas = this.element.querySelector('#cvCanvas');
+
+        // UI related inits
         this.elements.spiritHorizontal = this.element.querySelector('#spirit-horizontal');
         this.elements.spiritVertical = this.element.querySelector('#spirit-vertical');
         
@@ -221,7 +224,6 @@ export default class HomeController extends WebcController{
             this.cropPictures.push(this.element.querySelector(selector));
         }
         
-        this.elements.maskCanvas = this.element.querySelector('#maskCanvas');
         this.elements.cropView = this.element.querySelector('#crop-view');
         this.elements.sendBtn = this.element.querySelector('#send-btn');
 
@@ -240,8 +242,7 @@ export default class HomeController extends WebcController{
             10,
             () => {
                 console.log("Camera on");
-                //this.elements.cameraPreview.src = `${this.Camera.cameraProps._serverUrl}/mjpeg`;
-                //this.runProcessing();
+                //TODO : Hide the main loader here
             },
             0,
             0,
@@ -251,30 +252,15 @@ export default class HomeController extends WebcController{
         
     }
 
-    runProcessing(){
-        
-
-        // TODO: Try this instead
-        // window.requestAnimationFrame(this.timerCallback)
-        /*
-        this.callback = setTimeout(() => {
-            this.getFrame();
-            this.runProcessing();
-        }, 100);
-        */
-    }
-
     onFrameGrabbed(plImage, elapsedTime){
 
     }
-
-    
 
     placeUint8RGBArrayInCanvas(canvasElem, array, w, h) {
         let a = 1;
         let b = 0;
         canvasElem.width = w;
-        canvasElem.height = h*3/4; //NOTE: This might be incorrect. However, it does seem like the output height does not match reality.
+        canvasElem.height = h*3/4; //NOTE: This might be incorrect. However, it does seem like the output height does not match reality, this helps compensate.
         const ctx = canvasElem.getContext('2d');
         const clampedArray = new Uint8ClampedArray(w*h*4);
         let j = 0
@@ -303,10 +289,14 @@ export default class HomeController extends WebcController{
         // Apply edges
         // let edges = tm.getMergedEdges(src)
         let edges = tm.getEdges(src);
-  
+          
         // Apply contours
         let contours = tm.getContoursForEdges(edges);
-  
+
+        // Clean memory
+        src.delete();
+        edges.delete();
+
         // Find largest shapes if any discovered
         if (contours.size() > 0) {
           let bounds = new cv.Rect(5, 5, size.width - 5, size.height - 5);
@@ -347,12 +337,9 @@ export default class HomeController extends WebcController{
                           relativeBoxHeight > this.targetHeight - boxSizeErrorMargin &&
                           relativeBoxHeight < this.targetHeight + boxSizeErrorMargin;
   
-            // Debug data section, clear out later.
             let corners = tm.getCornersForContour(contours.get(largestContours[0]));
             if (corners != null) {
-              let tmp = new cv.Mat();
-              cv.cvtColor(edges, edges, cv.COLOR_GRAY2RGB, 0);
-  
+
               let points = [];
               for (let i = 0; i < corners.size(); ++i) {
                 const ci = corners.get(i);
@@ -363,9 +350,9 @@ export default class HomeController extends WebcController{
                   points.push(p);
                 }
               }
-  
+              corners.delete();
+              // We discovered four corners
               if (points.length === 4) {
-                // console.log(points)
                 // Sort points so topmost points are first
                 points.sort(compareY);
   
@@ -392,13 +379,8 @@ export default class HomeController extends WebcController{
                 let percentageLR = (clampedProgressLR / 2 * 100 - 50) * 4;
                 this.elements.spiritHorizontal.style.transform = "translate("+percentageLR+"%, 50%)";
               }
-  
-              cv.drawContours(edges, corners, -1, new cv.Scalar(255, 0, 0), 4, 8, tmp, 0)
-              corners.delete();
-              tmp.delete();
+              
             }
-            // cv.polylines(edges, [corners], true, new cv.Scalar(0, 0, 255), 1, cv.LINE_AA)
-            // End of debug
   
             // Section: AR target, targeting box positioning and position OK check
             let center = frame.getCenter();
@@ -464,11 +446,8 @@ export default class HomeController extends WebcController{
                 if (positionOK && sizeOK && angleOK) {
                     this.progress += 100 / 60 * 3;
                     if (this.progress > 100) {
-                        console.log('progress is 100');
                         this.progress = 100;
-                        this.takePicture().then(() => {
-                            console.log('boom');
-                        });
+                        this.takePicture();
                     }
                 } else {
                     this.progress = 0;
@@ -479,17 +458,6 @@ export default class HomeController extends WebcController{
             }
           }
         }
-  
-        // Render debug
-        //cv.imshow('cvCanvas', edges)
-  
-        // Clean memory
-        src.delete();
-        edges.delete();
-        // Access the image as data
-        // let image = this.canvas.toDataURL('image/png')
-        // console.log(image)
-        
     }
 
     async takePicture(){
@@ -502,16 +470,15 @@ export default class HomeController extends WebcController{
         this.takingPicture = false;
         this.progress = 0;
         this.takenPictures[this.imageIndex].src = base64ImageData;
-        //let self = this;
-        //let index = this.imageIndex;
-        //setTimeout(function(){ self.cropProcess(index); }, 100);
 
         this.imageIndex++;
+
+        // Last image taken, let's begin transitioning to crop view
         if (this.imageIndex > 4) {
+            this.stop
             this.Camera.closeCameraStream();
             this.imageIndex = 0;
             this.elements.cropView.style.display = "block";
-            //this.elements.sendBtn.style.display = "block";
             this.cropProcess(0);
         }
         
@@ -526,8 +493,6 @@ export default class HomeController extends WebcController{
                     if(index+1 < self.images.length){
                         self.cropProcess(index+1);
                     }else{
-                        console.log("Done");
-                        //self.sendForAnalysis();
                         self.elements.sendBtn.style.display = "block";
                     }
                 });
@@ -573,10 +538,8 @@ export default class HomeController extends WebcController{
             // If we found large contours
             if (largestContours.length > 0) {
                 
-                // Debug data section, clear out later.
                 let corners = tm.getCornersForContour(contours.get(largestContours[0]));
                 if (corners != null) {
-                    //cv.cvtColor(edges, edges, cv.COLOR_GRAY2RGB, 0);
         
                     let points = [];
                     for (let i = 0; i < corners.size(); ++i) {
@@ -605,12 +568,6 @@ export default class HomeController extends WebcController{
                     right = right*8 + safeMargin;
                     bottom = bottom*8 + safeMargin;
 
-                    /* Nifty for corner debugs
-                    let tl = new cv.Point(left, top);
-                    let tr = new cv.Point(right, top);
-                    let bl = new cv.Point(left, bottom);
-                    let br = new cv.Point(right, bottom);
-                    */
                     let black = new cv.Scalar(0, 0, 0, 255);
 
                     // Masking
@@ -618,16 +575,7 @@ export default class HomeController extends WebcController{
                     cv.rectangle(srcFull, new cv.Point(0, 0), new cv.Point(srcFull.cols-1, top), black, -1);
                     cv.rectangle(srcFull, new cv.Point(right, 0), new cv.Point(srcFull.cols-1, srcFull.rows-1), black, -1);
                     cv.rectangle(srcFull, new cv.Point(0, bottom), new cv.Point(srcFull.cols-1, srcFull.rows-1), black, -1);
-                    /*
-                    cv.circle(edges, tl, 10, new cv.Scalar(255, 0, 0), 3);
-                    cv.circle(edges, tr, 10, new cv.Scalar(255, 0, 0), 3);
-                    cv.circle(edges, bl, 10, new cv.Scalar(255, 0, 0), 3);
-                    cv.circle(edges, br, 10, new cv.Scalar(255, 0, 0), 3);
-                    */
 
-
-
-                    //cv.drawContours(edges, corners, -1, new cv.Scalar(255, 0, 0), 4, 8, tmp, 0)
                     corners.delete();
                 }
             }
