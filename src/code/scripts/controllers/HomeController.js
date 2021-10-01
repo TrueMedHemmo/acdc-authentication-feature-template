@@ -131,6 +131,13 @@ export default class HomeController extends WebcController{
     images = [];
     files = [];
     ticketNumber = null;
+    tooltipTarget = "Point the camera at the target";
+    tooltipMarker = "Align the reticle with the marker";
+    tooltipSteady = "Keep the camera steady";
+    tooltipLevel = "Keep the phone leveled";
+    tooltipCloser = "Move camera closer to target";
+    tooltipFurther = "Move camera further from target";
+    tooltipStraight = "Make sure the item is straight"
 
     constructor(element, history, ...args) {
         super(element, history, ...args);
@@ -143,7 +150,7 @@ export default class HomeController extends WebcController{
         this.takingPicture = false;
         this.callback = null;
         this.targetMarker = null;
-        this.targetHeight = 48;
+        this.targetHeight = 47;
         this.targetWidth = 45;
         this.targetX = 50;
         this.targetY = 50;
@@ -164,8 +171,7 @@ export default class HomeController extends WebcController{
         ];
         this.topBotRatio = 1;
         this.leftRightRatio = 1;
-        this.showSpirit = true;
-        this.skipProcessing = false;
+        this.pauseProcessing = false;
 
 
         this.onTagClick('send', () => {
@@ -197,6 +203,8 @@ export default class HomeController extends WebcController{
         this.elements.canvas = this.element.querySelector('#cvCanvas');
 
         // UI related inits
+        this.elements.spiritBarHorizontal = this.element.querySelector('#spirit-bar-horizontal');
+        this.elements.spiritBarVertical = this.element.querySelector('#spirit-bar-vertical');
         this.elements.spiritHorizontal = this.element.querySelector('#spirit-horizontal');
         this.elements.spiritVertical = this.element.querySelector('#spirit-vertical');
         
@@ -226,6 +234,10 @@ export default class HomeController extends WebcController{
         
         this.elements.cropView = this.element.querySelector('#crop-view');
         this.elements.sendBtn = this.element.querySelector('#send-btn');
+        this.elements.appLoader = this.element.querySelector('#app-boot-loader');
+        this.elements.uploadView = this.element.querySelector('#upload-view');
+        this.elements.uploadMessage = this.element.querySelector('#upload-message');
+        this.elements.tooltip = this.element.querySelector('#tooltip-text');
 
         const config = new PLCameraConfig("photo",
             "torch", true, true,
@@ -242,6 +254,7 @@ export default class HomeController extends WebcController{
             10,
             () => {
                 console.log("Camera on");
+                this.elements.appLoader.style.display = "none";
                 //TODO : Hide the main loader here
             },
             0,
@@ -250,6 +263,11 @@ export default class HomeController extends WebcController{
             0,
             false);
         
+    }
+
+    setProduct(){
+        let width = 78;
+        let height = 58;
     }
 
     onFrameGrabbed(plImage, elapsedTime){
@@ -281,182 +299,211 @@ export default class HomeController extends WebcController{
         let context = this.elements.canvas.getContext("2d");
         let imgData = context.getImageData(0, 0, this.elements.canvas.width, this.elements.canvas.height);
         
-
-        // Then, construct a cv.Mat:
-        let src = cv.matFromImageData(imgData);
-        var size = new cv.Size(src.cols, src.rows);
-  
-        // Apply edges
-        // let edges = tm.getMergedEdges(src)
-        let edges = tm.getEdges(src);
-          
-        // Apply contours
-        let contours = tm.getContoursForEdges(edges);
-
-        // Clean memory
-        src.delete();
-        edges.delete();
-
-        // Find largest shapes if any discovered
-        if (contours.size() > 0) {
-          let bounds = new cv.Rect(5, 5, size.width - 5, size.height - 5);
-          let verticalBounds = true;
-          let horizontalBounds = true;
-          let largestContours = tm.getLargestContourIDs(contours, bounds, verticalBounds, horizontalBounds);
-          let contourArray = [contours.get(largestContours[0]), contours.get(largestContours[1])];
-  
-          // Create frame data, this provides all information for analysis
-          var frame = new tm.FrameData(contourArray, size);
-  
-          // If we found large contours
-          if (largestContours.length > 0) {
-            // Size of box
-            let rect = cv.minAreaRect(contours.get(largestContours[0]));
-            let boundingRect = cv.RotatedRect.boundingRect(rect);
-  
-            let relativeBoxWidth = boundingRect.width / size.width * 100;
-            let relativeBoxHeight = boundingRect.height / size.height * 100;
-  
-            // Coarse check is used to establish if we should display the target marker and assume the user has found a box
-            let coarseBoxSizeErrorMargin = 20;
-            let coarseSizeOK = relativeBoxWidth > this.targetWidth - coarseBoxSizeErrorMargin &&
-                            relativeBoxWidth < this.targetWidth + coarseBoxSizeErrorMargin &&
-                            relativeBoxHeight > this.targetHeight - coarseBoxSizeErrorMargin &&
-                            relativeBoxHeight < this.targetHeight + coarseBoxSizeErrorMargin;
-  
-            if (coarseSizeOK) {
-                this.elements.target.style.opacity = 1;
-            } else {
-                this.elements.target.style.opacity = 0;
-            }
-  
-            // More strict size check, this limits when phone will actually be allowed to take a picture
-            let boxSizeErrorMargin = 5
-            let sizeOK = relativeBoxWidth > this.targetWidth - boxSizeErrorMargin &&
-                          relativeBoxWidth < this.targetWidth + boxSizeErrorMargin &&
-                          relativeBoxHeight > this.targetHeight - boxSizeErrorMargin &&
-                          relativeBoxHeight < this.targetHeight + boxSizeErrorMargin;
-  
-            let corners = tm.getCornersForContour(contours.get(largestContours[0]));
-            if (corners != null) {
-
-              let points = [];
-              for (let i = 0; i < corners.size(); ++i) {
-                const ci = corners.get(i);
-                for (let j = 0; j < ci.data32S.length; j += 2) {
-                  let p = {};
-                  p.x = ci.data32S[j];
-                  p.y = ci.data32S[j + 1];
-                  points.push(p);
-                }
-              }
-              corners.delete();
-              // We discovered four corners
-              if (points.length === 4) {
-                // Sort points so topmost points are first
-                points.sort(compareY);
-  
-                // Top/Bottom edges comparison
-                let topEdgeLength = Math.abs(points[0].x - points[1].x);
-                let botEdgeLength = Math.abs(points[2].x - points[3].x);
-  
-                // If above 1, top side is bigger
-                this.topBotRatio = topEdgeLength / botEdgeLength;
-                let clampedProgressTB = Math.min(Math.max(this.topBotRatio, 0), 2);
-                let percentageTB = (clampedProgressTB / 2 * 100 - 50) * 4;
-                this.elements.spiritVertical.style.transform = "translate(50%, "+percentageTB+"%)";
-  
-                // Sort points so that leftmost points are first
-                points.sort(compareX);
-  
-                // Left/Right edges comparison
-                let leftEdgeLength = Math.abs(points[0].y - points[1].y);
-                let rightEdgeLength = Math.abs(points[2].y - points[3].y);
-  
-                // If above 1, left side is bigger
-                this.leftRightRatio = leftEdgeLength / rightEdgeLength;
-                let clampedProgressLR = Math.min(Math.max(this.leftRightRatio, 0), 2);
-                let percentageLR = (clampedProgressLR / 2 * 100 - 50) * 4;
-                this.elements.spiritHorizontal.style.transform = "translate("+percentageLR+"%, 50%)";
-              }
-              
-            }
-  
-            // Section: AR target, targeting box positioning and position OK check
-            let center = frame.getCenter();
-            let currentTargetOffset = this.centerOffsets[this.imageIndex];
-            center.x = center.x + currentTargetOffset.x * this.centerMove;
-            center.y = center.y + currentTargetOffset.y * this.centerMove;
-  
-            this.targetX = 50 + currentTargetOffset.x * this.centerMove * 100 * -1;
-            this.targetY = 50 + currentTargetOffset.y * this.centerMove * 100 * -1;
-
-            this.elements.targetBox.style.top = this.targetY + "%";
-            this.elements.targetBox.style.left = this.targetX + "%";
-  
-            this.x = center.x * 100 - 50;
-            this.y = center.y * 100 - 50;
-  
-            this.elements.target.style.transform = 'translate(' + this.x + '%, ' + this.y + '%)';
-  
-            if(!this.takingPicture){
-
-                // Let's see if our camera is centered to the target
-                let positionOK = center.x < 0.52 && center.x > 0.48 && center.y < 0.52 && center.y > 0.48;
+        if(!this.pauseProcessing){
+            // Then, construct a cv.Mat:
+            let src = cv.matFromImageData(imgData);
+            var size = new cv.Size(src.cols, src.rows);
     
-                // Section: Angle check
-                let angle = frame.getAngle();
-                let angleOK = false;
-                let angleDirectionRight = null;
-                let angleThreshold = 3.5;
-    
-                if (angle > 45 && angle < 90 - angleThreshold) {
-                    angleDirectionRight = true;
-                } else if (angle <= 45 && angle > angleThreshold) {
-                    angleDirectionRight = false;
-                } else {
-                    angleOK = true;
-                }
-    
-                // Layered error handling
-                // We start with angle check
-                if (positionOK && !angleOK) {
-                    this.reticleError = true;
-                    this.targetError = false;
-                } else {
-                    this.reticleError = false;
-    
-                    // Distance check
-                    if (positionOK && !sizeOK) {
-                        this.targetError = true;
-    
-                    // TODO: Add distinctive effects for when target is far away and when target is too close
+            // Apply edges
+            // let edges = tm.getMergedEdges(src)
+            let edges = tm.getEdges(src);
+            
+            // Apply contours
+            let contours = tm.getContoursForEdges(edges);
+
+            // Clean memory
+            src.delete();
+            edges.delete();
+
+            // Find largest shapes if any discovered
+            if (contours.size() > 0) {
+                let bounds = new cv.Rect(5, 5, size.width - 5, size.height - 5);
+                let verticalBounds = true;
+                let horizontalBounds = true;
+                let largestContours = tm.getLargestContourIDs(contours, bounds, verticalBounds, horizontalBounds);
+                let contourArray = [contours.get(largestContours[0]), contours.get(largestContours[1])];
+        
+                // Create frame data, this provides all information for analysis
+                var frame = new tm.FrameData(contourArray, size);
+        
+                // If we found large contours
+                if (largestContours.length > 0) {
+                    // Size of box
+                    let rect = cv.minAreaRect(contours.get(largestContours[0]));
+                    let boundingRect = cv.RotatedRect.boundingRect(rect);
+        
+                    let relativeBoxWidth = boundingRect.width / size.width * 100;
+                    let relativeBoxHeight = boundingRect.height / size.height * 100;
+        
+                    // Coarse check is used to establish if we should display the target marker and assume the user has found a box
+                    let coarseBoxSizeErrorMargin = 20;
+                    let coarseSizeOK = relativeBoxWidth > this.targetWidth - coarseBoxSizeErrorMargin &&
+                                    relativeBoxWidth < this.targetWidth + coarseBoxSizeErrorMargin &&
+                                    relativeBoxHeight > this.targetHeight - coarseBoxSizeErrorMargin &&
+                                    relativeBoxHeight < this.targetHeight + coarseBoxSizeErrorMargin;
+        
+                    if (coarseSizeOK) {
+                        this.elements.target.style.opacity = 1;
+                        this.setTooltip(this.tooltipMarker);
                     } else {
-                        this.targetError = false;
+                        this.elements.target.style.opacity = 0;
+                        this.setTooltip(this.tooltipTarget);
+                    }
+        
+                    // More strict size check, this limits when phone will actually be allowed to take a picture
+                    let boxSizeErrorMargin = 5
+                    let sizeOK = relativeBoxWidth > this.targetWidth - boxSizeErrorMargin &&
+                                relativeBoxWidth < this.targetWidth + boxSizeErrorMargin &&
+                                relativeBoxHeight > this.targetHeight - boxSizeErrorMargin &&
+                                relativeBoxHeight < this.targetHeight + boxSizeErrorMargin;
+        
+                    let corners = tm.getCornersForContour(contours.get(largestContours[0]));
+                    
+                    let topBotRatioOK = true;
+                    let leftRightRatioOK = true;
+
+                    if (corners != null) {
+
+                        let points = [];
+                        for (let i = 0; i < corners.size(); ++i) {
+                            const ci = corners.get(i);
+                            for (let j = 0; j < ci.data32S.length; j += 2) {
+                                let p = {};
+                                p.x = ci.data32S[j];
+                                p.y = ci.data32S[j + 1];
+                                points.push(p);
+                            }
+                        }
+                        corners.delete();
+                        // We discovered four corners
+                        if (points.length === 4) {
+                            // Sort points so topmost points are first
+                            points.sort(compareY);
+            
+                            // Top/Bottom edges comparison
+                            let topEdgeLength = Math.abs(points[0].x - points[1].x);
+                            let botEdgeLength = Math.abs(points[2].x - points[3].x);
+            
+                            let acceptedDeviation = 0.04;
+                            let deviationMin = 1 - acceptedDeviation;
+                            let deviationMax = 1 + acceptedDeviation;
+
+                            // If above 1, top side is bigger
+                            this.topBotRatio = topEdgeLength / botEdgeLength;
+                            if(!(this.topBotRatio > deviationMin && this.topBotRatio < deviationMax)){
+                                topBotRatioOK = false;
+                            }
+                            let clampedProgressTB = Math.min(Math.max(this.topBotRatio, 0), 2);
+                            let percentageTB = (clampedProgressTB / 2 * 100 - 50) * 4;
+                            this.elements.spiritVertical.style.transform = "translate(50%, "+percentageTB+"%)";
+            
+                            // Sort points so that leftmost points are first
+                            points.sort(compareX);
+            
+                            // Left/Right edges comparison
+                            let leftEdgeLength = Math.abs(points[0].y - points[1].y);
+                            let rightEdgeLength = Math.abs(points[2].y - points[3].y);
+            
+                            // If above 1, left side is bigger
+                            this.leftRightRatio = leftEdgeLength / rightEdgeLength;
+                            if(!(this.leftRightRatio > deviationMin && this.leftRightRatio < deviationMax)){
+                                leftRightRatioOK = false;
+                            }
+                            let clampedProgressLR = Math.min(Math.max(this.leftRightRatio, 0), 2);
+                            let percentageLR = (clampedProgressLR / 2 * 100 - 50) * 4;
+                            this.elements.spiritHorizontal.style.transform = "translate("+percentageLR+"%, 50%)";
+                        }
+                        
+                    }
+                    if(leftRightRatioOK){
+                        this.elements.spiritBarHorizontal.style.opacity = 0;
+                    }else{
+                        this.elements.spiritBarHorizontal.style.opacity = 1;
+                    }
+                    if(topBotRatioOK){
+                        this.elements.spiritBarVertical.style.opacity = 0;
+                    }else{
+                        this.elements.spiritBarVertical.style.opacity = 1;
+                    }
+            
+                    // Section: AR target, targeting box positioning and position OK check
+                    let center = frame.getCenter();
+                    let currentTargetOffset = this.centerOffsets[this.imageIndex];
+                    center.x = center.x + currentTargetOffset.x * this.centerMove;
+                    center.y = center.y + currentTargetOffset.y * this.centerMove;
+        
+                    this.targetX = 50 + currentTargetOffset.x * this.centerMove * 100 * -1;
+                    this.targetY = 50 + currentTargetOffset.y * this.centerMove * 100 * -1;
+
+                    this.elements.targetBox.style.top = this.targetY + "%";
+                    this.elements.targetBox.style.left = this.targetX + "%";
+        
+                    this.x = center.x * 100 - 50;
+                    this.y = center.y * 100 - 50;
+        
+                    this.elements.target.style.transform = 'translate(' + this.x + '%, ' + this.y + '%)';
+        
+                    if(!this.takingPicture){
+
+                        // Let's see if our camera is centered to the target
+                        let positionOK = center.x < 0.52 && center.x > 0.48 && center.y < 0.52 && center.y > 0.48;
+            
+                        // Section: Angle check
+                        let angle = frame.getAngle();
+                        let angleOK = false;
+                        let angleDirectionRight = null;
+                        let angleThreshold = 3.5;
+            
+                        if (angle > 45 && angle < 90 - angleThreshold) {
+                            angleDirectionRight = true;
+                        } else if (angle <= 45 && angle > angleThreshold) {
+                            angleDirectionRight = false;
+                        } else {
+                            angleOK = true;
+                        }
+            
+                        // Layered error handling
+                        // We start with angle check
+                        if (positionOK && !angleOK) {
+                            this.reticleError = true;
+                            this.targetError = false;
+                            this.setTooltip(this.tooltipStraight);
+                        } else {
+                            this.reticleError = false;
+            
+                            // Distance check
+                            if (positionOK && !sizeOK) {
+                                this.targetError = true;
+                                this.setTooltip(this.tooltipCloser);
+                            // TODO: Add distinctive effects for when target is far away and when target is too close
+                            } else {
+                                this.targetError = false;
+                            }
+                        }
+
+                        if(this.targetError){
+                            this.elements.targetBox.style['border-color'] = 'red';
+                        }else{
+                            this.elements.targetBox.style['border-color'] = 'white';
+                        }
+            
+                        // TODO: Standardize this to a set timing async routine and account for aspect ratios
+                        if (positionOK && sizeOK && angleOK && topBotRatioOK && leftRightRatioOK) {
+                            this.setTooltip(this.tooltipSteady);
+                            this.progress += 100 / 60 * 3;
+                            if (this.progress > 100) {
+                                this.progress = 100;
+                                this.takePicture();
+                            }
+                        } else {
+                            this.progress = 0;
+                        }
+
+                        const offset = this.circumference - this.progress / 100 * this.circumference;
+                        this.elements.progressCircle.style.strokeDashoffset = offset;
                     }
                 }
-
-                if(this.targetError){
-                    this.elements.targetBox.style['border-color'] = 'red';
-                }else{
-                    this.elements.targetBox.style['border-color'] = 'white';
-                }
-    
-                // TODO: Standardize this to a set timing async routine and account for aspect ratios
-                if (positionOK && sizeOK && angleOK) {
-                    this.progress += 100 / 60 * 3;
-                    if (this.progress > 100) {
-                        this.progress = 100;
-                        this.takePicture();
-                    }
-                } else {
-                    this.progress = 0;
-                }
-
-                const offset = this.circumference - this.progress / 100 * this.circumference;
-                this.elements.progressCircle.style.strokeDashoffset = offset;
             }
-          }
         }
     }
 
@@ -475,11 +522,15 @@ export default class HomeController extends WebcController{
 
         // Last image taken, let's begin transitioning to crop view
         if (this.imageIndex > 4) {
-            this.stop
-            this.Camera.closeCameraStream();
+            this.pauseProcessing = true;
             this.imageIndex = 0;
-            this.elements.cropView.style.display = "block";
-            this.cropProcess(0);
+            let self = this;
+            setTimeout(function() {
+                self.Camera.closeCameraStream();
+                
+                self.elements.cropView.style.display = "block";
+                self.cropProcess(0);
+            }, 1000);
         }
         
     }
@@ -587,13 +638,27 @@ export default class HomeController extends WebcController{
         src.delete();
         
         let finalImg = this.elements.canvas.toDataURL("image/jpeg");
-        //this.cropPictures[index].src = finalImg;
+        this.cropPictures[index].src = finalImg;
         this.files.push(dataURLtoFile(finalImg, index+'.jpg'));
         
     }
 
+    setLoaderText(text){
+        this.elements.uploadMessage.innerHTML = text;
+    }
+
+    setTooltip(text){
+        if(this.takingPicture){
+            this.elements.tooltip.innerHTML = this.tooltipSteady;
+        } else {
+            this.elements.tooltip.innerHTML = text;
+        }
+    }
+
     sendForAnalysis(){
         console.log("Send pressed");
+        this.elements.uploadView.style.display = "block";
+        this.setLoaderText("Sending images for analysis...");
         let self = this;
 
         var data = new FormData();
@@ -627,9 +692,13 @@ export default class HomeController extends WebcController{
 
         
 
-        xhr.addEventListener('progress', function() {
-            console.log('progress');
-        });
+        
+        xhr.addEventListener("progress", function(evt){
+            if (evt.lengthComputable) { 
+                self.setLoaderText(Math.round(evt.loaded / evt.total * 100) + "%");  
+            }  
+        }, false);
+
         xhr.addEventListener('error', function() {
             console.log('error');
         });
@@ -641,86 +710,8 @@ export default class HomeController extends WebcController{
         xhr.send(data);
     }
 
-    async waitForResults(){
-        /*
-        "data": {
-            "scan_result": {
-                "date_created": "Thu, 30 Sep 2021 09:19:45 GMT",
-                "estimated_time": "17.398610277286455",
-                "scan_status": "pending",
-                "ticket_number": "179eacc7-aad5-4a2d-9a32-8f590d0c994c"
-            }
-        },
-        "success": true
-        */
-
-        /*
-        "data": {
-            "scan_result": {
-                "adjusted_score": null,
-                "ai_version": "3.2.18r_DEV",
-                "aligned_loss_score": "0.0030597220174968243",
-                "aligned_ratio_diff_score": "0.012808561325073242",
-                "brand": {
-                    "name": "Benzatinor",
-                    "public_id": "db133391-4134-452a-8e5c-75580ef75ad5"
-                },
-                "confidence": "100",
-                "date_analysed": "Thu, 30 Sep 2021 09:21:31 GMT",
-                "date_created": "Thu, 30 Sep 2021 09:19:45 GMT",
-                "device_model": "SM-G960FS",
-                "diversion": true,
-                "estimated_time": "17.398610277286455",
-                "expected_result": null,
-                "instance": {
-                    "active_instance": true,
-                    "camera_distance": 0.0,
-                    "canny_max": 0,
-                    "canny_min": 0,
-                    "logo": "/instance_thumbnail/95d906cf-e139-4a7f-8123-116b5a7f870a.png",
-                    "metatags": "authentisch,feikkisch",
-                    "name": "Benzatinor Grano package_scantrained",
-                    "package_diameter": 0.0,
-                    "package_height": 78.0,
-                    "package_type": "package",
-                    "package_width": 58.0,
-                    "public_id": "fc86067e-e39d-4807-bca9-9649ca0e45aa",
-                    "threshold": 10000.0
-                },
-                "latitude": 0.0,
-                "light_level": 100.0,
-                "longitude": 0.0,
-                "organization": {
-                    "name": "TrueMed Ltd.",
-                    "public_id": "e33f0982-f7a0-4322-9824-bed40826e790"
-                },
-                "product": {
-                    "description": "This demo package sold in the US",
-                    "name": "Benzatinor demo package",
-                    "public_id": "61d78f0c-34e9-47ac-8311-5426d3c90a58"
-                },
-                "product_source_latitude": null,
-                "product_source_longitude": null,
-                "ratio_diff_score": "-0.051387906074523926",
-                "raw_score": "0.0",
-                "raw_score_colour": null,
-                "scan_image": "packages/0ab16817-59a3-4d57-ad34-3f73c8be6029",
-                "scan_status": "done",
-                "scan_type": "package",
-                "state": "done",
-                "status": "success",
-                "ticket_number": "179eacc7-aad5-4a2d-9a32-8f590d0c994c",
-                "user": {
-                    "first_name": "Hemmo",
-                    "last_name": "Latvala",
-                    "public_id": "1cf1c3d9-d92c-4af3-9353-245167cf9437"
-                }
-            }
-        },
-        */
-    }
-
     getTicket(ticket){
+        this.setLoaderText("Analysing...");
         let self = this;
         var data = JSON.stringify({
             "ticket_number": ticket
@@ -746,11 +737,12 @@ export default class HomeController extends WebcController{
                         self.report(true, undefined);
                     // Counterfeit
                     }else{
-                        self.report(false, "Package invalid");
+                        self.report(false, undefined);
                     }
                 }
             }
         });
+
         
         xhr.open("POST", "https://api-test.truemed.cloud/v1.0/scan/tickets");
         xhr.setRequestHeader("Content-Type", "application/json");
@@ -760,6 +752,7 @@ export default class HomeController extends WebcController{
 
         xhr.send(data);
     }
+
 
 
     async verifyPack(){
