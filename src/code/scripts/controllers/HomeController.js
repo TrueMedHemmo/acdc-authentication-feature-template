@@ -3,6 +3,7 @@ import tm from "../../tm.js";
 const {WebcController} = WebCardinal.controllers;
 const {constants, THREE, PLCameraConfig} = window.Native.Camera;
 
+const api = "https://api-test.truemed.cloud/v1.0";
 const apiKey = "3efa4044-3638-4c97-8c57-d94f4ad7ba3d";
 const installId = "MTda17VfnVpZdrtPEun66aRYX5C2hT3qoYvhYJDbCaNxSjNxKiMoSG6CP2isWuooTbyh6AyD9B2J3vryV1";
 
@@ -178,6 +179,9 @@ export default class HomeController extends WebcController{
             this.sendForAnalysis();
         })
 
+
+        console.log(gs1Data);
+
         // Retrieve product based on code
         getProductInfo(gs1Data.gtin, (err, product) => {
             if (err)
@@ -209,8 +213,7 @@ export default class HomeController extends WebcController{
         this.elements.spiritVertical = this.element.querySelector('#spirit-vertical');
         
         this.elements.targetBox = this.element.querySelector('#box');
-        this.elements.targetBox.style.width = this.targetWidth + "%";
-        this.elements.targetBox.style.height = this.targetHeight + "%";
+        
         
         this.elements.target = this.element.querySelector('#target-marker');
         this.elements.target.style.opacity = 0;
@@ -245,6 +248,8 @@ export default class HomeController extends WebcController{
             true, null,
             1);
 
+        this.getCode("1234");
+
         this.Camera.nativeBridge.startNativeCameraWithConfig(
             config,
             this.onFramePreview.bind(this),
@@ -256,6 +261,8 @@ export default class HomeController extends WebcController{
                 console.log("Camera on");
                 this.elements.appLoader.style.display = "none";
                 //TODO : Hide the main loader here
+                //this.setProduct();
+                
             },
             0,
             0,
@@ -265,9 +272,25 @@ export default class HomeController extends WebcController{
         
     }
 
-    setProduct(){
-        let width = 78;
-        let height = 58;
+    setProduct(packageHeight, packageWidth){
+        //let packageWidth = 174;//78;
+        //let packageHeight = 50;//58;
+
+        let scaleModifier = 0.65;
+
+        this.targetHeight = packageWidth * 0.602 * scaleModifier; // 47/78 =
+        this.targetWidth = packageHeight * 0.776 * scaleModifier;//45; // 45/58=
+
+        //this.targetHeight = hMod * height;
+        //this.targetWidth = wMod * width;
+
+        //let canvasHeight = this.elements.canvas.clientHeight;
+        //let canvasWidth = this.elements.canvas.clientWidth;
+
+        this.elements.targetBox.style.width = this.targetWidth + "%";
+        this.elements.targetBox.style.height = this.targetHeight + "%";
+
+        
     }
 
     onFrameGrabbed(plImage, elapsedTime){
@@ -357,6 +380,7 @@ export default class HomeController extends WebcController{
                                 relativeBoxHeight > this.targetHeight - boxSizeErrorMargin &&
                                 relativeBoxHeight < this.targetHeight + boxSizeErrorMargin;
         
+                    /*
                     let corners = tm.getCornersForContour(contours.get(largestContours[0]));
                     
                     let topBotRatioOK = true;
@@ -425,6 +449,7 @@ export default class HomeController extends WebcController{
                     }else{
                         this.elements.spiritBarVertical.style.opacity = 1;
                     }
+                    */
             
                     // Section: AR target, targeting box positioning and position OK check
                     let center = frame.getCenter();
@@ -488,7 +513,7 @@ export default class HomeController extends WebcController{
                         }
             
                         // TODO: Standardize this to a set timing async routine and account for aspect ratios
-                        if (positionOK && sizeOK && angleOK && topBotRatioOK && leftRightRatioOK) {
+                        if (positionOK && sizeOK && angleOK /* && topBotRatioOK && leftRightRatioOK*/) {
                             this.setTooltip(this.tooltipSteady);
                             this.progress += 100 / 60 * 3;
                             if (this.progress > 100) {
@@ -670,7 +695,7 @@ export default class HomeController extends WebcController{
         data.append("latitude", "0");
         data.append("longitude", "0");
         data.append("scan_type", "package");
-        data.append("instance_id", "fc86067e-e39d-4807-bca9-9649ca0e45aa");
+        data.append("instance_id", "ae86e21d-c634-4d2d-a4be-011d86aa5715");
 
         var xhr = new XMLHttpRequest();
         xhr.withCredentials = true;
@@ -703,7 +728,7 @@ export default class HomeController extends WebcController{
             console.log('error');
         });
 
-        xhr.open("POST", "https://api-test.truemed.cloud/v1.0/scan/identify");
+        xhr.open("POST", api+"/scan/identify");
         xhr.setRequestHeader('Cache-Control','no-cache');
         xhr.setRequestHeader("X-API-KEY", apiKey);
         xhr.setRequestHeader("X-INSTALL-ID", installId);
@@ -713,9 +738,6 @@ export default class HomeController extends WebcController{
     getTicket(ticket){
         this.setLoaderText("Analysing...");
         let self = this;
-        var data = JSON.stringify({
-            "ticket_number": ticket
-        });
         
         var xhr = new XMLHttpRequest();
         xhr.withCredentials = true;
@@ -744,7 +766,71 @@ export default class HomeController extends WebcController{
         });
 
         
-        xhr.open("POST", "https://api-test.truemed.cloud/v1.0/scan/tickets");
+        xhr.open("GET", api+"/scan/"+ticket);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.setRequestHeader('Cache-Control','no-cache');
+        xhr.setRequestHeader("X-API-KEY", apiKey);
+        xhr.setRequestHeader("X-INSTALL-ID", installId);
+
+        xhr.send();
+    }
+
+    // Get product using code, then queue an instance request using product code
+    getCode(code){
+        let self = this;
+        
+        var xhr = new XMLHttpRequest();
+        xhr.withCredentials = true;
+        
+        xhr.addEventListener("readystatechange", function() {
+            if(this.readyState === 4) {
+                const response = JSON.parse(this.responseText);
+                
+                const product = response.data.trace_code.product.public_id;
+                self.getInstance(product);
+            }
+        });
+
+        
+        xhr.open("GET", api+"/code_scanner/"+code);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.setRequestHeader('Cache-Control','no-cache');
+        xhr.setRequestHeader("X-API-KEY", apiKey);
+        xhr.setRequestHeader("X-INSTALL-ID", installId);
+
+        xhr.send();
+    }
+
+    // Get package size and instance id and graphic
+    getInstance(product){
+
+        var data = JSON.stringify({"filter":{
+            "product": product,
+            "active": 1,
+            "authenticity": 1
+        }});
+
+        let self = this;
+        var xhr = new XMLHttpRequest();
+        xhr.withCredentials = true;
+        
+        xhr.addEventListener("readystatechange", function() {
+            if(this.readyState === 4) {
+                const response = JSON.parse(this.responseText);
+                
+                const instance = response.data.instances[0];
+                const id = instance.public_id;
+                const width = instance.package_width;
+                const height = instance.package_height;
+                const img = instance.logo;
+
+                self.setProduct(width, height);
+            }
+        });
+
+
+
+        xhr.open("POST", api+"/instance/search/1");
         xhr.setRequestHeader("Content-Type", "application/json");
         xhr.setRequestHeader('Cache-Control','no-cache');
         xhr.setRequestHeader("X-API-KEY", apiKey);
@@ -771,6 +857,8 @@ export default class HomeController extends WebcController{
             self.report(isValid, isValid ? undefined : "Package is not valid");
         });
     }
+
+
 
     async scanCode(callback){
         const self = this;
