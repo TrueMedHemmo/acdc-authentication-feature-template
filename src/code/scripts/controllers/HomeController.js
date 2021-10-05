@@ -213,7 +213,7 @@ export default class HomeController extends WebcController{
         this.elements.spiritVertical = this.element.querySelector('#spirit-vertical');
         
         this.elements.targetBox = this.element.querySelector('#box');
-        
+        this.elements.targetBoxImg = this.element.querySelector('#box-img');
         
         this.elements.target = this.element.querySelector('#target-marker');
         this.elements.target.style.opacity = 0;
@@ -242,12 +242,12 @@ export default class HomeController extends WebcController{
         this.elements.uploadMessage = this.element.querySelector('#upload-message');
         this.elements.tooltip = this.element.querySelector('#tooltip-text');
 
-        const config = new PLCameraConfig("photo",
-            "torch", true, true,
+        let config = new PLCameraConfig("photo",
+            "torch", true, false,
             ["wideAngleCamera"], "back",
             true, null,
             1);
-
+        config.initOrientation = "portrait";
         this.getCode("1234");
 
         this.Camera.nativeBridge.startNativeCameraWithConfig(
@@ -258,10 +258,8 @@ export default class HomeController extends WebcController{
             this.onFrameGrabbed.bind(this),
             10,
             () => {
-                console.log("Camera on");
+                console.log("Camera on, hiding loader.");
                 this.elements.appLoader.style.display = "none";
-                //TODO : Hide the main loader here
-                //this.setProduct();
                 
             },
             0,
@@ -276,21 +274,21 @@ export default class HomeController extends WebcController{
         //let packageWidth = 174;//78;
         //let packageHeight = 50;//58;
 
-        let scaleModifier = 0.65;
+        let scaleModifier = 0.6;
 
+        //Physically the package will be flipped 90 degrees while scanning, so we use flipped values
         this.targetHeight = packageWidth * 0.602 * scaleModifier; // 47/78 =
         this.targetWidth = packageHeight * 0.776 * scaleModifier;//45; // 45/58=
-
-        //this.targetHeight = hMod * height;
-        //this.targetWidth = wMod * width;
 
         //let canvasHeight = this.elements.canvas.clientHeight;
         //let canvasWidth = this.elements.canvas.clientWidth;
 
-        this.elements.targetBox.style.width = this.targetWidth + "%";
-        this.elements.targetBox.style.height = this.targetHeight + "%";
+        // Funnily enough, for the box we need the opposite, because we rotate it in CSS
+        let targetBoxWidth = packageWidth * 0.776 * scaleModifier;
+        let targetBoxHeight = packageHeight * 0.602 * scaleModifier;
 
-        
+        this.elements.targetBox.style.width =  targetBoxWidth + "%";
+        this.elements.targetBox.style.height = targetBoxHeight + "%";
     }
 
     onFrameGrabbed(plImage, elapsedTime){
@@ -374,82 +372,14 @@ export default class HomeController extends WebcController{
                     }
         
                     // More strict size check, this limits when phone will actually be allowed to take a picture
-                    let boxSizeErrorMargin = 5
+                    let boxSizeErrorMargin = 7
+
+
                     let sizeOK = relativeBoxWidth > this.targetWidth - boxSizeErrorMargin &&
                                 relativeBoxWidth < this.targetWidth + boxSizeErrorMargin &&
                                 relativeBoxHeight > this.targetHeight - boxSizeErrorMargin &&
                                 relativeBoxHeight < this.targetHeight + boxSizeErrorMargin;
         
-                    /*
-                    let corners = tm.getCornersForContour(contours.get(largestContours[0]));
-                    
-                    let topBotRatioOK = true;
-                    let leftRightRatioOK = true;
-
-                    if (corners != null) {
-
-                        let points = [];
-                        for (let i = 0; i < corners.size(); ++i) {
-                            const ci = corners.get(i);
-                            for (let j = 0; j < ci.data32S.length; j += 2) {
-                                let p = {};
-                                p.x = ci.data32S[j];
-                                p.y = ci.data32S[j + 1];
-                                points.push(p);
-                            }
-                        }
-                        corners.delete();
-                        // We discovered four corners
-                        if (points.length === 4) {
-                            // Sort points so topmost points are first
-                            points.sort(compareY);
-            
-                            // Top/Bottom edges comparison
-                            let topEdgeLength = Math.abs(points[0].x - points[1].x);
-                            let botEdgeLength = Math.abs(points[2].x - points[3].x);
-            
-                            let acceptedDeviation = 0.04;
-                            let deviationMin = 1 - acceptedDeviation;
-                            let deviationMax = 1 + acceptedDeviation;
-
-                            // If above 1, top side is bigger
-                            this.topBotRatio = topEdgeLength / botEdgeLength;
-                            if(!(this.topBotRatio > deviationMin && this.topBotRatio < deviationMax)){
-                                topBotRatioOK = false;
-                            }
-                            let clampedProgressTB = Math.min(Math.max(this.topBotRatio, 0), 2);
-                            let percentageTB = (clampedProgressTB / 2 * 100 - 50) * 4;
-                            this.elements.spiritVertical.style.transform = "translate(50%, "+percentageTB+"%)";
-            
-                            // Sort points so that leftmost points are first
-                            points.sort(compareX);
-            
-                            // Left/Right edges comparison
-                            let leftEdgeLength = Math.abs(points[0].y - points[1].y);
-                            let rightEdgeLength = Math.abs(points[2].y - points[3].y);
-            
-                            // If above 1, left side is bigger
-                            this.leftRightRatio = leftEdgeLength / rightEdgeLength;
-                            if(!(this.leftRightRatio > deviationMin && this.leftRightRatio < deviationMax)){
-                                leftRightRatioOK = false;
-                            }
-                            let clampedProgressLR = Math.min(Math.max(this.leftRightRatio, 0), 2);
-                            let percentageLR = (clampedProgressLR / 2 * 100 - 50) * 4;
-                            this.elements.spiritHorizontal.style.transform = "translate("+percentageLR+"%, 50%)";
-                        }
-                        
-                    }
-                    if(leftRightRatioOK){
-                        this.elements.spiritBarHorizontal.style.opacity = 0;
-                    }else{
-                        this.elements.spiritBarHorizontal.style.opacity = 1;
-                    }
-                    if(topBotRatioOK){
-                        this.elements.spiritBarVertical.style.opacity = 0;
-                    }else{
-                        this.elements.spiritBarVertical.style.opacity = 1;
-                    }
-                    */
             
                     // Section: AR target, targeting box positioning and position OK check
                     let center = frame.getCenter();
@@ -499,7 +429,17 @@ export default class HomeController extends WebcController{
                             // Distance check
                             if (positionOK && !sizeOK) {
                                 this.targetError = true;
-                                this.setTooltip(this.tooltipCloser);
+
+                                // Too far
+                                if(relativeBoxWidth < this.targetWidth - boxSizeErrorMargin || relativeBoxHeight < this.targetHeight - boxSizeErrorMargin){
+                                    this.setTooltip(this.tooltipCloser);
+                                // Too close
+                                } else if (relativeBoxWidth > this.targetWidth + boxSizeErrorMargin || relativeBoxHeight > this.targetHeight + boxSizeErrorMargin){
+                                    this.setTooltip(this.tooltipFurther);
+                                }
+                                
+
+                                
                             // TODO: Add distinctive effects for when target is far away and when target is too close
                             } else {
                                 this.targetError = false;
@@ -543,8 +483,14 @@ export default class HomeController extends WebcController{
         this.progress = 0;
         this.takenPictures[this.imageIndex].src = base64ImageData;
 
-        this.imageIndex++;
+        // After first image, we no longer need to show the target ghost image.
+        if(this.imageIndex == 0){
+            this.elements.targetBoxImg.style.opacity = 0;
+        }
 
+        // Update image index.
+        this.imageIndex++;
+        
         // Last image taken, let's begin transitioning to crop view
         if (this.imageIndex > 4) {
             this.pauseProcessing = true;
@@ -822,13 +768,12 @@ export default class HomeController extends WebcController{
                 const id = instance.public_id;
                 const width = instance.package_width;
                 const height = instance.package_height;
-                const img = instance.logo;
+                const img = api + "/instance"+instance.logo;
 
                 self.setProduct(width, height);
+                self.downloadImage(img);
             }
         });
-
-
 
         xhr.open("POST", api+"/instance/search/1");
         xhr.setRequestHeader("Content-Type", "application/json");
@@ -839,7 +784,31 @@ export default class HomeController extends WebcController{
         xhr.send(data);
     }
 
+    downloadImage(url) {
+        
+        let self = this;
+        var xhr = new XMLHttpRequest();
+        xhr.withCredentials = true;
+        xhr.responseType = 'blob';
+        
+        xhr.onload = function () {
+            if (xhr.status === 200) {
+                // If successful, set img
+                self.elements.targetBoxImg.src = window.URL.createObjectURL(xhr.response);
+            } else {
+                // If it fails, just log an error for now
+                console.log('Image didn\'t load successfully; error code:' + request.statusText);
+            }
+        };
 
+        xhr.open("GET", url);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.setRequestHeader('Cache-Control','no-cache');
+        xhr.setRequestHeader("X-API-KEY", apiKey);
+        xhr.setRequestHeader("X-INSTALL-ID", installId);
+
+        xhr.send();
+    }
 
     async verifyPack(){
         const self = this;
