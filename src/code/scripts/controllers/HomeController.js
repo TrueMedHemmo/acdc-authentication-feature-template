@@ -502,6 +502,8 @@ export default class HomeController extends WebcController{
                 self.Camera.closeCameraStream();
                 
                 self.elements.cropView.style.display = "block";
+                self.elements.uploadView.style.display = "block";
+                self.setLoaderText("Preparing images...");
                 self.cropProcess(0);
             }, 1000);
         }
@@ -517,7 +519,8 @@ export default class HomeController extends WebcController{
                     if(index+1 < self.images.length){
                         self.cropProcess(index+1);
                     }else{
-                        self.elements.sendBtn.style.display = "block";
+                        // self.elements.sendBtn.style.display = "block";
+                        self.sendForAnalysis();
                     }
                 });
             };
