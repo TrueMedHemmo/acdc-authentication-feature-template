@@ -173,6 +173,7 @@ export default class HomeController extends WebcController{
         this.topBotRatio = 1;
         this.leftRightRatio = 1;
         this.pauseProcessing = false;
+        this.instance_id = null;
 
 
         this.onTagClick('send', () => {
@@ -241,6 +242,7 @@ export default class HomeController extends WebcController{
         this.elements.uploadView = this.element.querySelector('#upload-view');
         this.elements.uploadMessage = this.element.querySelector('#upload-message');
         this.elements.tooltip = this.element.querySelector('#tooltip-text');
+        this.elements.progressText = this.element.querySelector('#progress-text');
 
         let config = new PLCameraConfig("photo",
             "torch", true, false,
@@ -248,7 +250,7 @@ export default class HomeController extends WebcController{
             true, null,
             1);
         config.initOrientation = "portrait";
-        this.getCode("1234");
+        this.getCode(gs1Data.serialNumber);
 
         this.Camera.nativeBridge.startNativeCameraWithConfig(
             config,
@@ -357,7 +359,7 @@ export default class HomeController extends WebcController{
                     let relativeBoxHeight = boundingRect.height / size.height * 100;
         
                     // Coarse check is used to establish if we should display the target marker and assume the user has found a box
-                    let coarseBoxSizeErrorMargin = 20;
+                    let coarseBoxSizeErrorMargin = 10;
                     let coarseSizeOK = relativeBoxWidth > this.targetWidth - coarseBoxSizeErrorMargin &&
                                     relativeBoxWidth < this.targetWidth + coarseBoxSizeErrorMargin &&
                                     relativeBoxHeight > this.targetHeight - coarseBoxSizeErrorMargin &&
@@ -490,7 +492,7 @@ export default class HomeController extends WebcController{
 
         // Update image index.
         this.imageIndex++;
-        
+        this.elements.progressText.innerHTML = this.imageIndex + " / 5";
         // Last image taken, let's begin transitioning to crop view
         if (this.imageIndex > 4) {
             this.pauseProcessing = true;
@@ -641,7 +643,7 @@ export default class HomeController extends WebcController{
         data.append("latitude", "0");
         data.append("longitude", "0");
         data.append("scan_type", "package");
-        data.append("instance_id", "ae86e21d-c634-4d2d-a4be-011d86aa5715");
+        data.append("instance_id", this.instance_id);
 
         var xhr = new XMLHttpRequest();
         xhr.withCredentials = true;
@@ -705,7 +707,7 @@ export default class HomeController extends WebcController{
                         self.report(true, undefined);
                     // Counterfeit
                     }else{
-                        self.report(false, undefined);
+                        self.report(false, "Product is not valid");
                     }
                 }
             }
@@ -770,6 +772,7 @@ export default class HomeController extends WebcController{
                 const height = instance.package_height;
                 const img = api + "/instance"+instance.logo;
 
+                self.instance_id = id;
                 self.setProduct(width, height);
                 self.downloadImage(img);
             }

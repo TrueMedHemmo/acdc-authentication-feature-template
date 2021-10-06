@@ -176,4 +176,16 @@
   #tooltip-text {
     color: white;
     text-align:center;
+    text-shadow: 1px 1px 5px #00000055;
+  }
+
+  #progress-text {
+    color:white;
+    position: absolute;
+    top: 30px;
+    font-weight: bold;
+    text-align:right;
+    right: 30px;
+    width:100%;
+    text-shadow: 1px 1px 5px #00000055;
   }
