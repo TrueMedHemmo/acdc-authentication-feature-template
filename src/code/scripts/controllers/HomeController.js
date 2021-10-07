@@ -614,7 +614,7 @@ export default class HomeController extends WebcController{
         src.delete();
         
         let finalImg = this.elements.canvas.toDataURL("image/jpeg");
-        this.cropPictures[index].src = finalImg;
+        //this.cropPictures[index].src = finalImg;
         this.files.push(dataURLtoFile(finalImg, index+'.jpg'));
         
     }
