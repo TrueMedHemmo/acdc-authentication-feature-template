@@ -117,6 +117,7 @@ function compareX (a, b) {
 }
 
 function dataURLtoFile(dataurl, filename) {
+    // TODO: atob is being deprecated, find modern method
     var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
         bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
     while (n--) {
@@ -132,6 +133,8 @@ export default class HomeController extends WebcController{
     images = [];
     files = [];
     ticketNumber = null;
+
+    // Tooltip texts
     tooltipTarget = "Point the camera at the target";
     tooltipMarker = "Align the reticle with the marker";
     tooltipSteady = "Keep the camera steady";
@@ -251,6 +254,7 @@ export default class HomeController extends WebcController{
             1);
         config.initOrientation = "portrait";
         this.getCode(gs1Data.serialNumber);
+
 
         this.Camera.nativeBridge.startNativeCameraWithConfig(
             config,
@@ -374,7 +378,7 @@ export default class HomeController extends WebcController{
                     }
         
                     // More strict size check, this limits when phone will actually be allowed to take a picture
-                    let boxSizeErrorMargin = 7
+                    let boxSizeErrorMargin = 8
 
 
                     let sizeOK = relativeBoxWidth > this.targetWidth - boxSizeErrorMargin &&
@@ -403,7 +407,7 @@ export default class HomeController extends WebcController{
                     if(!this.takingPicture){
 
                         // Let's see if our camera is centered to the target
-                        let positionOK = center.x < 0.52 && center.x > 0.48 && center.y < 0.52 && center.y > 0.48;
+                        let positionOK = center.x < 0.53 && center.x > 0.47 && center.y < 0.53 && center.y > 0.47;
             
                         // Section: Angle check
                         let angle = frame.getAngle();
@@ -632,7 +636,6 @@ export default class HomeController extends WebcController{
     }
 
     sendForAnalysis(){
-        console.log("Send pressed");
         this.elements.uploadView.style.display = "block";
         this.setLoaderText("Sending images for analysis...");
         let self = this;
@@ -658,6 +661,12 @@ export default class HomeController extends WebcController{
                 console.log(response);
                 if(response.success){
                     self.getTicket(response.data.ticket_number);
+
+                    // Let's see if clearing these from memory will allow for repeat uses
+                    self.takenPictures = [];
+                    self.cropPictures = [];
+                    self.images = [];
+                    self.files = [];
                 }else{
                     console.log('no success');
                 }
@@ -666,9 +675,7 @@ export default class HomeController extends WebcController{
             }
         });
 
-        
-
-        
+          
         xhr.addEventListener("progress", function(evt){
             if (evt.lengthComputable) { 
                 self.setLoaderText(Math.round(evt.loaded / evt.total * 100) + "%");  
