@@ -251,8 +251,8 @@ export default class HomeController extends WebcController{
             "torch", true, false,
             ["wideAngleCamera"], "back",
             true, null,
-            1);
-        config.initOrientation = "portrait";
+            1, "portrait");
+        //config.initOrientation = "portrait";
         this.getCode(gs1Data.serialNumber);
 
 
@@ -656,9 +656,7 @@ export default class HomeController extends WebcController{
 
         xhr.addEventListener("readystatechange", function() {
             if(this.readyState === 4) {
-                console.log(this.responseText);
                 const response = JSON.parse(this.responseText);
-                console.log(response);
                 if(response.success){
                     self.getTicket(response.data.ticket_number);
 
@@ -668,7 +666,7 @@ export default class HomeController extends WebcController{
                     self.images = [];
                     self.files = [];
                 }else{
-                    console.log('no success');
+                    console.log('No success, error in the system.');
                 }
             } else {
                 console.log(this.readyState);
