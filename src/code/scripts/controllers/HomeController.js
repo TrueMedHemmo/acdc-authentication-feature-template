@@ -315,7 +315,7 @@ export default class HomeController extends WebcController{
         let a = 1;
         let b = 0;
         canvasElem.width = w;
-        canvasElem.height = h*3/4; //NOTE: This might be incorrect. However, it does seem like the output height does not match reality, this helps compensate.
+        canvasElem.height = h;
         const ctx = canvasElem.getContext('2d');
         const clampedArray = new Uint8ClampedArray(w*h*4);
         let j = 0
