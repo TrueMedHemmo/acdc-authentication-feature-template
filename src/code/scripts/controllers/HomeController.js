@@ -3,8 +3,8 @@ import tm from "../../tm.js";
 const {WebcController} = WebCardinal.controllers;
 const {constants, THREE, PLCameraConfig} = window.Native.Camera;
 
-const api = "https://api-test.truemed.cloud/v1.0";
-const apiKey = "3efa4044-3638-4c97-8c57-d94f4ad7ba3d";
+const api = "https://api-pl.truemed.cloud/v1.0";
+const apiKey = "<API-KEY-HERE>";
 const installId = "MTda17VfnVpZdrtPEun66aRYX5C2hT3qoYvhYJDbCaNxSjNxKiMoSG6CP2isWuooTbyh6AyD9B2J3vryV1";
 
 class AuthFeatureError {
@@ -145,6 +145,9 @@ export default class HomeController extends WebcController{
 
     constructor(element, history, ...args) {
         super(element, history, ...args);
+
+        
+
         // Initiating core
         const gs1Data = getQueryStringParams();
         this.model.gs1Data = gs1Data;
@@ -241,11 +244,18 @@ export default class HomeController extends WebcController{
         
         this.elements.cropView = this.element.querySelector('#crop-view');
         this.elements.sendBtn = this.element.querySelector('#send-btn');
-        this.elements.appLoader = this.element.querySelector('#app-boot-loader');
         this.elements.uploadView = this.element.querySelector('#upload-view');
         this.elements.uploadMessage = this.element.querySelector('#upload-message');
         this.elements.tooltip = this.element.querySelector('#tooltip-text');
         this.elements.progressText = this.element.querySelector('#progress-text');
+
+        // Check that API key is set
+        if (apiKey == "<API-KEY-HERE>"){
+            this.setLoaderText("No API key set.");
+            return;
+        } else {
+            this.setLoaderText("Initializing camera...");
+        }
 
         let config = new PLCameraConfig("photo",
             "torch", true, false,
@@ -265,7 +275,7 @@ export default class HomeController extends WebcController{
             10,
             () => {
                 console.log("Camera on, hiding loader.");
-                this.elements.appLoader.style.display = "none";
+                this.elements.uploadView.style.display = "none";
                 
             },
             0,

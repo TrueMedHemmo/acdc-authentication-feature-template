@@ -209,9 +209,6 @@ export default class NativeController extends WebcController{
             true, this.Camera.cameraProps.selectedColorspace,
             parseFloat(this.elements.torchRange.value));
 
-        console.log(config);
-        console.log(this.previewWidth);
-        console.log(this.targetRawFPS);
         this.Camera.nativeBridge.startNativeCameraWithConfig(
             config,
             onFramePreviewCallback,
