@@ -21,3 +21,9 @@ Testing:
 - Wait for result
 - If redirected back to the product page, testing OK
 
+Scanning instructions:
+- Place package on a relatively matte white surface (white sheet of A4 paper is good for example)
+- Point the camera towards the package from above
+- Move the phone so that the package is within the white rectangle in the camera preview
+- Repeat this 4 more times
+- Wait for result
