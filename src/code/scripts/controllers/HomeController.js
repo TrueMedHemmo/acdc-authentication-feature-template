@@ -180,6 +180,7 @@ export default class HomeController extends WebcController{
         this.leftRightRatio = 1;
         this.pauseProcessing = false;
         this.instance_id = null;
+        this.stopRendering = false;
 
 
         this.onTagClick('send', () => {
@@ -331,157 +332,161 @@ export default class HomeController extends WebcController{
     }
 
     onFramePreview(rgbImage, elapsedTime) {
-        this.placeUint8RGBArrayInCanvas(this.elements.canvas, new Uint8Array(rgbImage.arrayBuffer), rgbImage.width, rgbImage.height);
+        if(!this.stopRendering){
+            this.placeUint8RGBArrayInCanvas(this.elements.canvas, new Uint8Array(rgbImage.arrayBuffer), rgbImage.width, rgbImage.height);
 
-        let context = this.elements.canvas.getContext("2d");
-        let imgData = context.getImageData(0, 0, this.elements.canvas.width, this.elements.canvas.height);
+            let context = this.elements.canvas.getContext("2d");
+            let imgData = context.getImageData(0, 0, this.elements.canvas.width, this.elements.canvas.height);
         
-        if(!this.pauseProcessing){
-            // Then, construct a cv.Mat:
-            let src = cv.matFromImageData(imgData);
-            var size = new cv.Size(src.cols, src.rows);
-    
-            // Apply edges
-            // let edges = tm.getMergedEdges(src)
-            let edges = tm.getEdges(src);
+        
+        
+            if(!this.pauseProcessing){
+                // Then, construct a cv.Mat:
+                let src = cv.matFromImageData(imgData);
+                var size = new cv.Size(src.cols, src.rows);
+        
+                // Apply edges
+                // let edges = tm.getMergedEdges(src)
+                let edges = tm.getEdges(src);
+                
+                // Apply contours
+                let contours = tm.getContoursForEdges(edges);
+
+                // Clean memory
+                src.delete();
+                edges.delete();
+
+                // Find largest shapes if any discovered
+                if (contours.size() > 0) {
+                    let bounds = new cv.Rect(5, 5, size.width - 5, size.height - 5);
+                    let verticalBounds = true;
+                    let horizontalBounds = true;
+                    let largestContours = tm.getLargestContourIDs(contours, bounds, verticalBounds, horizontalBounds);
+                    let contourArray = [contours.get(largestContours[0]), contours.get(largestContours[1])];
             
-            // Apply contours
-            let contours = tm.getContoursForEdges(edges);
-
-            // Clean memory
-            src.delete();
-            edges.delete();
-
-            // Find largest shapes if any discovered
-            if (contours.size() > 0) {
-                let bounds = new cv.Rect(5, 5, size.width - 5, size.height - 5);
-                let verticalBounds = true;
-                let horizontalBounds = true;
-                let largestContours = tm.getLargestContourIDs(contours, bounds, verticalBounds, horizontalBounds);
-                let contourArray = [contours.get(largestContours[0]), contours.get(largestContours[1])];
-        
-                // Create frame data, this provides all information for analysis
-                var frame = new tm.FrameData(contourArray, size);
-        
-                // If we found large contours
-                if (largestContours.length > 0) {
-                    // Size of box
-                    let rect = cv.minAreaRect(contours.get(largestContours[0]));
-                    let boundingRect = cv.RotatedRect.boundingRect(rect);
-        
-                    let relativeBoxWidth = boundingRect.width / size.width * 100;
-                    let relativeBoxHeight = boundingRect.height / size.height * 100;
-        
-                    // Coarse check is used to establish if we should display the target marker and assume the user has found a box
-                    let coarseBoxSizeErrorMargin = 10;
-                    let coarseSizeOK = relativeBoxWidth > this.targetWidth - coarseBoxSizeErrorMargin &&
-                                    relativeBoxWidth < this.targetWidth + coarseBoxSizeErrorMargin &&
-                                    relativeBoxHeight > this.targetHeight - coarseBoxSizeErrorMargin &&
-                                    relativeBoxHeight < this.targetHeight + coarseBoxSizeErrorMargin;
-        
-                    if (coarseSizeOK) {
-                        this.elements.target.style.opacity = 1;
-                        this.setTooltip(this.tooltipMarker);
-                    } else {
-                        this.elements.target.style.opacity = 0;
-                        this.setTooltip(this.tooltipTarget);
-                    }
-        
-                    // More strict size check, this limits when phone will actually be allowed to take a picture
-                    let boxSizeErrorMargin = 8
-
-
-                    let sizeOK = relativeBoxWidth > this.targetWidth - boxSizeErrorMargin &&
-                                relativeBoxWidth < this.targetWidth + boxSizeErrorMargin &&
-                                relativeBoxHeight > this.targetHeight - boxSizeErrorMargin &&
-                                relativeBoxHeight < this.targetHeight + boxSizeErrorMargin;
-        
+                    // Create frame data, this provides all information for analysis
+                    var frame = new tm.FrameData(contourArray, size);
             
-                    // Section: AR target, targeting box positioning and position OK check
-                    let center = frame.getCenter();
-                    let currentTargetOffset = this.centerOffsets[this.imageIndex];
-                    center.x = center.x + currentTargetOffset.x * this.centerMove;
-                    center.y = center.y + currentTargetOffset.y * this.centerMove;
-        
-                    this.targetX = 50 + currentTargetOffset.x * this.centerMove * 100 * -1;
-                    this.targetY = 50 + currentTargetOffset.y * this.centerMove * 100 * -1;
-
-                    this.elements.targetBox.style.top = this.targetY + "%";
-                    this.elements.targetBox.style.left = this.targetX + "%";
-        
-                    this.x = center.x * 100 - 50;
-                    this.y = center.y * 100 - 50;
-        
-                    this.elements.target.style.transform = 'translate(' + this.x + '%, ' + this.y + '%)';
-        
-                    if(!this.takingPicture){
-
-                        // Let's see if our camera is centered to the target
-                        let positionOK = center.x < 0.53 && center.x > 0.47 && center.y < 0.53 && center.y > 0.47;
+                    // If we found large contours
+                    if (largestContours.length > 0) {
+                        // Size of box
+                        let rect = cv.minAreaRect(contours.get(largestContours[0]));
+                        let boundingRect = cv.RotatedRect.boundingRect(rect);
             
-                        // Section: Angle check
-                        let angle = frame.getAngle();
-                        let angleOK = false;
-                        let angleDirectionRight = null;
-                        let angleThreshold = 3.5;
+                        let relativeBoxWidth = boundingRect.width / size.width * 100;
+                        let relativeBoxHeight = boundingRect.height / size.height * 100;
             
-                        if (angle > 45 && angle < 90 - angleThreshold) {
-                            angleDirectionRight = true;
-                        } else if (angle <= 45 && angle > angleThreshold) {
-                            angleDirectionRight = false;
+                        // Coarse check is used to establish if we should display the target marker and assume the user has found a box
+                        let coarseBoxSizeErrorMargin = 10;
+                        let coarseSizeOK = relativeBoxWidth > this.targetWidth - coarseBoxSizeErrorMargin &&
+                                        relativeBoxWidth < this.targetWidth + coarseBoxSizeErrorMargin &&
+                                        relativeBoxHeight > this.targetHeight - coarseBoxSizeErrorMargin &&
+                                        relativeBoxHeight < this.targetHeight + coarseBoxSizeErrorMargin;
+            
+                        if (coarseSizeOK) {
+                            this.elements.target.style.opacity = 1;
+                            this.setTooltip(this.tooltipMarker);
                         } else {
-                            angleOK = true;
+                            this.elements.target.style.opacity = 0;
+                            this.setTooltip(this.tooltipTarget);
                         }
             
-                        // Layered error handling
-                        // We start with angle check
-                        if (positionOK && !angleOK) {
-                            this.reticleError = true;
-                            this.targetError = false;
-                            this.setTooltip(this.tooltipStraight);
-                        } else {
-                            this.reticleError = false;
+                        // More strict size check, this limits when phone will actually be allowed to take a picture
+                        let boxSizeErrorMargin = 8
+
+
+                        let sizeOK = relativeBoxWidth > this.targetWidth - boxSizeErrorMargin &&
+                                    relativeBoxWidth < this.targetWidth + boxSizeErrorMargin &&
+                                    relativeBoxHeight > this.targetHeight - boxSizeErrorMargin &&
+                                    relativeBoxHeight < this.targetHeight + boxSizeErrorMargin;
             
-                            // Distance check
-                            if (positionOK && !sizeOK) {
-                                this.targetError = true;
+                
+                        // Section: AR target, targeting box positioning and position OK check
+                        let center = frame.getCenter();
+                        let currentTargetOffset = this.centerOffsets[this.imageIndex];
+                        center.x = center.x + currentTargetOffset.x * this.centerMove;
+                        center.y = center.y + currentTargetOffset.y * this.centerMove;
+            
+                        this.targetX = 50 + currentTargetOffset.x * this.centerMove * 100 * -1;
+                        this.targetY = 50 + currentTargetOffset.y * this.centerMove * 100 * -1;
 
-                                // Too far
-                                if(relativeBoxWidth < this.targetWidth - boxSizeErrorMargin || relativeBoxHeight < this.targetHeight - boxSizeErrorMargin){
-                                    this.setTooltip(this.tooltipCloser);
-                                // Too close
-                                } else if (relativeBoxWidth > this.targetWidth + boxSizeErrorMargin || relativeBoxHeight > this.targetHeight + boxSizeErrorMargin){
-                                    this.setTooltip(this.tooltipFurther);
-                                }
-                                
+                        this.elements.targetBox.style.top = this.targetY + "%";
+                        this.elements.targetBox.style.left = this.targetX + "%";
+            
+                        this.x = center.x * 100 - 50;
+                        this.y = center.y * 100 - 50;
+            
+                        this.elements.target.style.transform = 'translate(' + this.x + '%, ' + this.y + '%)';
+            
+                        if(!this.takingPicture){
 
-                                
-                            // TODO: Add distinctive effects for when target is far away and when target is too close
+                            // Let's see if our camera is centered to the target
+                            let positionOK = center.x < 0.53 && center.x > 0.47 && center.y < 0.53 && center.y > 0.47;
+                
+                            // Section: Angle check
+                            let angle = frame.getAngle();
+                            let angleOK = false;
+                            let angleDirectionRight = null;
+                            let angleThreshold = 3.5;
+                
+                            if (angle > 45 && angle < 90 - angleThreshold) {
+                                angleDirectionRight = true;
+                            } else if (angle <= 45 && angle > angleThreshold) {
+                                angleDirectionRight = false;
                             } else {
+                                angleOK = true;
+                            }
+                
+                            // Layered error handling
+                            // We start with angle check
+                            if (positionOK && !angleOK) {
+                                this.reticleError = true;
                                 this.targetError = false;
-                            }
-                        }
+                                this.setTooltip(this.tooltipStraight);
+                            } else {
+                                this.reticleError = false;
+                
+                                // Distance check
+                                if (positionOK && !sizeOK) {
+                                    this.targetError = true;
 
-                        if(this.targetError){
-                            this.elements.targetBox.style['border-color'] = 'red';
-                        }else{
-                            this.elements.targetBox.style['border-color'] = 'white';
-                        }
-            
-                        // TODO: Standardize this to a set timing async routine and account for aspect ratios
-                        if (positionOK && sizeOK && angleOK /* && topBotRatioOK && leftRightRatioOK*/) {
-                            this.setTooltip(this.tooltipSteady);
-                            this.progress += 100 / 60 * 3;
-                            if (this.progress > 100) {
-                                this.progress = 100;
-                                this.takePicture();
-                            }
-                        } else {
-                            this.progress = 0;
-                        }
+                                    // Too far
+                                    if(relativeBoxWidth < this.targetWidth - boxSizeErrorMargin || relativeBoxHeight < this.targetHeight - boxSizeErrorMargin){
+                                        this.setTooltip(this.tooltipCloser);
+                                    // Too close
+                                    } else if (relativeBoxWidth > this.targetWidth + boxSizeErrorMargin || relativeBoxHeight > this.targetHeight + boxSizeErrorMargin){
+                                        this.setTooltip(this.tooltipFurther);
+                                    }
+                                    
 
-                        const offset = this.circumference - this.progress / 100 * this.circumference;
-                        this.elements.progressCircle.style.strokeDashoffset = offset;
+                                    
+                                // TODO: Add distinctive effects for when target is far away and when target is too close
+                                } else {
+                                    this.targetError = false;
+                                }
+                            }
+
+                            if(this.targetError){
+                                this.elements.targetBox.style['border-color'] = 'red';
+                            }else{
+                                this.elements.targetBox.style['border-color'] = 'white';
+                            }
+                
+                            // TODO: Standardize this to a set timing async routine and account for aspect ratios
+                            if (positionOK && sizeOK && angleOK /* && topBotRatioOK && leftRightRatioOK*/) {
+                                this.setTooltip(this.tooltipSteady);
+                                this.progress += 100 / 60 * 3;
+                                if (this.progress > 100) {
+                                    this.progress = 100;
+                                    this.takePicture();
+                                }
+                            } else {
+                                this.progress = 0;
+                            }
+
+                            const offset = this.circumference - this.progress / 100 * this.circumference;
+                            this.elements.progressCircle.style.strokeDashoffset = offset;
+                        }
                     }
                 }
             }
@@ -513,8 +518,9 @@ export default class HomeController extends WebcController{
             this.imageIndex = 0;
             let self = this;
             setTimeout(function() {
-                self.Camera.closeCameraStream();
-                
+                //self.Camera.closeCameraStream();
+                self.Camera.nativeBridge.setFlashModeNativeCamera("off");
+                self.stopRendering = true;
                 self.elements.cropView.style.display = "block";
                 self.elements.uploadView.style.display = "block";
                 self.setLoaderText("Preparing images...");
@@ -534,6 +540,11 @@ export default class HomeController extends WebcController{
                         self.cropProcess(index+1);
                     }else{
                         // self.elements.sendBtn.style.display = "block";
+                        self.Camera.registerHandlers(
+                            null,
+                            null,
+                            null
+                        )
                         self.sendForAnalysis();
                     }
                 });
@@ -649,7 +660,7 @@ export default class HomeController extends WebcController{
         this.elements.uploadView.style.display = "block";
         this.setLoaderText("Sending images for analysis...");
         let self = this;
-
+        
         var data = new FormData();
 
         for(let i = 0; i < this.files.length; i++){            
@@ -699,6 +710,8 @@ export default class HomeController extends WebcController{
         xhr.setRequestHeader("X-API-KEY", apiKey);
         xhr.setRequestHeader("X-INSTALL-ID", installId);
         xhr.send(data);
+
+        
     }
 
     getTicket(ticket){
