@@ -182,13 +182,19 @@ export default class HomeController extends WebcController{
         this.instance_id = null;
         this.stopRendering = false;
 
+        // Performance metrics
+        this.timeControllerInit = Date.now();
+        this.timeCameraInit = null;
+        this.timeCaptureStart = null;
+        this.timeCaptureComplete = null;
+        this.framesReceived = 0;
+        this.cumulativeElapsedTime = 0;
+        this.device = navigator.userAgent;
+
 
         this.onTagClick('send', () => {
             this.sendForAnalysis();
         })
-
-
-        console.log(gs1Data);
 
         // Retrieve product based on code
         getProductInfo(gs1Data.gtin, (err, product) => {
@@ -213,6 +219,7 @@ export default class HomeController extends WebcController{
         )
         this.elements.cameraPreview = this.element.querySelector('#camera-preview');
         this.elements.canvas = this.element.querySelector('#cvCanvas');
+        this.elements.imgProcCanvas = this.element.querySelector('#imgProcCanvas');
 
         // UI related inits
         this.elements.spiritBarHorizontal = this.element.querySelector('#spirit-bar-horizontal');
@@ -266,7 +273,6 @@ export default class HomeController extends WebcController{
         //config.initOrientation = "portrait";
         this.getCode(gs1Data.serialNumber);
 
-
         this.Camera.nativeBridge.startNativeCameraWithConfig(
             config,
             this.onFramePreview.bind(this),
@@ -277,7 +283,7 @@ export default class HomeController extends WebcController{
             () => {
                 console.log("Camera on, hiding loader.");
                 this.elements.uploadView.style.display = "none";
-                
+                this.timeCameraInit = Date.now();
             },
             0,
             0,
@@ -333,12 +339,15 @@ export default class HomeController extends WebcController{
 
     onFramePreview(rgbImage, elapsedTime) {
         if(!this.stopRendering){
+            //Collect performance metrics
+            this.framesReceived++;
+            this.cumulativeElapsedTime += elapsedTime;
+
+            //
             this.placeUint8RGBArrayInCanvas(this.elements.canvas, new Uint8Array(rgbImage.arrayBuffer), rgbImage.width, rgbImage.height);
 
             let context = this.elements.canvas.getContext("2d");
             let imgData = context.getImageData(0, 0, this.elements.canvas.width, this.elements.canvas.height);
-        
-        
         
             if(!this.pauseProcessing){
                 // Then, construct a cv.Mat:
@@ -502,32 +511,42 @@ export default class HomeController extends WebcController{
         this.images.push(base64ImageData);
         this.takingPicture = false;
         this.progress = 0;
+        let self = this;
+        this.takenPictures[this.imageIndex].onload = function() {
+            self.processPhoto(self.takenPictures[self.imageIndex], self.imageIndex).then(()=>{
+                self.takenPictures[self.imageIndex].remove()
+                self.imageIndex++;
+                self.elements.progressText.innerHTML = self.imageIndex + " / 5";
+                // Last image taken, let's begin transitioning to crop view
+                if (self.imageIndex > 4) {
+                    self.pauseProcessing = true;
+                    self.imageIndex = 0;
+
+                    setTimeout(function() {
+                        //self.Camera.closeCameraStream();
+                        self.Camera.nativeBridge.setFlashModeNativeCamera("off");
+                        self.stopRendering = true;
+                        //self.Camera.nativeBridge.stopNativeCamera();
+                        self.elements.cropView.style.display = "block";
+                        self.elements.uploadView.style.display = "block";
+                        self.setLoaderText("Preparing images...");
+                        self.sendForAnalysis();
+                    }, 1000);
+                }
+            });
+        };
+
         this.takenPictures[this.imageIndex].src = base64ImageData;
 
+        // Update image index.
+        
+        
         // After first image, we no longer need to show the target ghost image.
         if(this.imageIndex == 0){
             this.elements.targetBoxImg.style.opacity = 0;
+            this.timeCaptureStart = Date.now();
         }
 
-        // Update image index.
-        this.imageIndex++;
-        this.elements.progressText.innerHTML = this.imageIndex + " / 5";
-        // Last image taken, let's begin transitioning to crop view
-        if (this.imageIndex > 4) {
-            this.pauseProcessing = true;
-            this.imageIndex = 0;
-            let self = this;
-            setTimeout(function() {
-                //self.Camera.closeCameraStream();
-                self.Camera.nativeBridge.setFlashModeNativeCamera("off");
-                self.stopRendering = true;
-                self.elements.cropView.style.display = "block";
-                self.elements.uploadView.style.display = "block";
-                self.setLoaderText("Preparing images...");
-                self.cropProcess(0);
-            }, 1000);
-        }
-        
     }
 
     // Loops itself until it has processed all images
@@ -539,7 +558,6 @@ export default class HomeController extends WebcController{
                     if(index+1 < self.images.length){
                         self.cropProcess(index+1);
                     }else{
-                        // self.elements.sendBtn.style.display = "block";
                         self.Camera.registerHandlers(
                             null,
                             null,
@@ -553,11 +571,11 @@ export default class HomeController extends WebcController{
     }
 
     async processPhoto(image, index){
-        this.elements.canvas.width = image.width;
-        this.elements.canvas.height = image.height;
-        let context = this.elements.canvas.getContext("2d");
+        this.elements.imgProcCanvas.width = image.width;
+        this.elements.imgProcCanvas.height = image.height;
+        let context = this.elements.imgProcCanvas.getContext("2d");
         context.drawImage(image, 0, 0);
-        let imgData = context.getImageData(0, 0, this.elements.canvas.width, this.elements.canvas.height);
+        let imgData = context.getImageData(0, 0, this.elements.imgProcCanvas.width, this.elements.imgProcCanvas.height);
         
         // Then, construct a cv.Mat:
         let srcFull = cv.matFromImageData(imgData);
@@ -632,13 +650,23 @@ export default class HomeController extends WebcController{
                 }
             }
         }
+
+        // Downscale output to reduce upload times and memory requirements
+        width = Math.floor(srcFull.cols/2);
+        height = Math.floor(srcFull.rows/2);
+        var size = new cv.Size(width, height);
+        cv.resize(srcFull, srcFull, size, 0, 0, cv.INTER_AREA);
+
         cv.transpose(srcFull, srcFull);
         cv.flip(srcFull, srcFull, 0);
-        cv.imshow('cvCanvas', srcFull);
+        this.elements.canvas.width = width/2;
+        this.elements.canvas.height = height/2;
+
+        cv.imshow('imgProcCanvas', srcFull);
         srcFull.delete();
         src.delete();
         
-        let finalImg = this.elements.canvas.toDataURL("image/jpeg");
+        let finalImg = this.elements.imgProcCanvas.toDataURL("image/jpeg");
         //this.cropPictures[index].src = finalImg;
         this.files.push(dataURLtoFile(finalImg, index+'.jpg'));
         
@@ -665,8 +693,26 @@ export default class HomeController extends WebcController{
 
         for(let i = 0; i < this.files.length; i++){            
             data.append("file", this.files[i]);
-        } 
-        data.append("device_id", "EPI");
+        }
+
+        this.timeCaptureComplete = Date.now();
+
+        
+        // Times displayed in seconds
+        let timeToCameraInit = (this.timeCameraInit - this.timeControllerInit) / 1000;
+        timeToCameraInit = timeToCameraInit.toFixed(2);
+        let timeToCaptureComplete = (this.timeCaptureComplete - this.timeCaptureStart) / 1000;
+        timeToCaptureComplete = timeToCaptureComplete.toFixed(2);
+        // Average FPS
+        let averageElapsedTime = this.cumulativeElapsedTime / this.framesReceived;
+        averageElapsedTime = averageElapsedTime.toFixed(2);
+
+        let performanceMetrics = this.device;
+        performanceMetrics += ";\nAuthLoadTime: "+timeToCameraInit;
+        performanceMetrics += ";\nResponseTime: "+timeToCaptureComplete;
+        performanceMetrics += ";\nAverageElapsedTime:"+averageElapsedTime;
+
+        data.append("device_id", performanceMetrics);
         data.append("latitude", "0");
         data.append("longitude", "0");
         data.append("scan_type", "package");
