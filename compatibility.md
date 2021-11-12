@@ -11,7 +11,9 @@ Measured timing from an Ad-Hoc build from:
 * acdc-authentication-feature-truemed: ---------
 * acdc-ios-edge-agent: b423cbfd33f847d001b731a3514e5856af0e8285
 * pharmaledger-camera: 2c9422b8781c8df49378d3df89e4e7a1c0b6f3b7
-Data collection amount - 
+Data collection amount: 500kb download / 1mb upload
+
+
 | date      | C / B |   model   |   iOS   |   initial loading time   |   resp time(1) |  auth feature tm load. time   |  preview framerate(2) | gl framerate    | remarks                           |   tester    |
 |-----------|-------|-----------|---------|--------------------------|----------------|-------------------------------|-----------------------|-----------------|-----------------------------------|-------------|
 | 28 oct 21 | C     | 8         | 15.0.2  | -                        |  17.81s + 12s  |     1.52s                     |        25.17fps       |  Not Measured   | Short stall during capture        |   Hemmo     |
