@@ -31,9 +31,43 @@
     <script src="opencv.js" type="text/javascript"></script>
     <script type="module" src="tm.js"></script>
 
-    <script src="scripts/bundles/camera.js"></script>
-    
+    <script type="text/javascript">
+		(function(d, script) {
+			script = d.createElement('script');
+			script.type = 'text/javascript';
+			script.async = true;
+			script.onload = function(){
+				console.log("Camera.js bundle has loaded.");
+			};
 
+			script.onerror = function(){
+				console.log("Camera.js not available! Take note that some native APIs we will not work!");
+			};
+
+			let baseURL = window.top.location.href;
+
+			if(window.top.location.hash !== ""){
+				baseURL = baseURL.replace(window.top.location.hash, "");
+			}
+
+			if(window.top.location.search !== ""){
+				baseURL = baseURL.replace(window.top.location.search, "");
+			}
+
+			//if the url contains a file name like index.html or other we remove it
+			if(baseURL.split('/').pop().indexOf('.') > -1){
+				baseURL = baseURL.replace(baseURL.split('/').pop(), "");
+			}
+
+			if(baseURL[baseURL.length-1] !== "/"){
+				baseURL +="/";
+			}
+
+			script.src = baseURL+'camera.js';
+
+			d.getElementsByTagName('head')[0].appendChild(script);
+		}(document));
+    </script>
     <script>
         if (window.frameElement) {
             const iframeIdentity = window.frameElement.getAttribute('identity');

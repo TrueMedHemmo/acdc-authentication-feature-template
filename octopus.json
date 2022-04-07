@@ -102,16 +102,8 @@
         },
         {
           "type": "copy",
-          "src": "../pdm-web-components/css/globalStyles.css",
+          "src": "../acdc/pdm-web-components/css/globalStyles.css",
           "target": "./src/code/assets/skin.css",
-          "options": {
-            "overwrite": true
-          }
-        },
-        {
-          "type": "copy",
-          "src": "../native-integration/build/bundles/default/camera.js",
-          "target": "src/code/scripts/bundles/camera.js",
           "options": {
             "overwrite": true
           }
@@ -132,6 +124,5 @@
         }
       ]
     }
-  ],
-  "postbuild": []
+  ]
 }

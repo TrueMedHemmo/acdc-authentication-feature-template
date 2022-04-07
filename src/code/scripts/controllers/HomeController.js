@@ -56,44 +56,20 @@ const getQueryStringParams = () => {
         : {}
 };
 
-const getProductInfo = function(gtin, callback){
+const getProductInfo = async function(gtinFields, callback){
     const gtinResolver = require('gtin-resolver');
-    const keySSI = gtinResolver.createGTIN_SSI('epi', 'epi', gtin);
-    const resolver = require('opendsu').loadApi('resolver');
-    resolver.loadDSU(keySSI, (err, dsu) => {
-        if (err)
-            return callback(err);
-        dsu.readFile('product/product.json', (err, product) => {
-            if (err)
-                return callback(err);
-            try{
-                product = JSON.parse(product);
-            } catch (e) {
-                return callback(e);
-            }
-            callback(undefined, product);
-        });
-    })
+    const leafletInfoService = gtinResolver.LeafletInfoService;
+
+    let service = await leafletInfoService.init(gtinFields, gtinFields.domain || "epi");
+    service.readProductData(callback);
 }
 
-const getBatchInfo = function(gtin, batchNumber,  callback){
+const getBatchInfo = async function(gtinFields,  callback){
     const gtinResolver = require('gtin-resolver');
-    const keySSI = gtinResolver.createGTIN_SSI('epi', 'epi', gtin, batchNumber);
-    const resolver = require('opendsu').loadApi('resolver');
-    resolver.loadDSU(keySSI, (err, dsu) => {
-        if (err)
-            return callback(err);
-        dsu.readFile('batch/batch.json', (err, batch) => {
-            if (err)
-                return callback(err);
-            try{
-                batch = JSON.parse(batch);
-            } catch (e) {
-                return callback(e);
-            }
-            callback(undefined, batch);
-        });
-    })
+    const leafletInfoService = gtinResolver.LeafletInfoService;
+
+    let service = await leafletInfoService.init(gtinFields, gtinFields.domain || "epi");
+    service.readBatchData(callback);
 }
 
 function compareY (a, b) {
@@ -197,12 +173,12 @@ export default class HomeController extends WebcController{
         })
 
         // Retrieve product based on code
-        getProductInfo(gs1Data.gtin, (err, product) => {
+        getProductInfo(gs1Data, (err, product) => {
             if (err)
                 console.log(`Could not read product info`, err);
             else
                 self.model.product = product;
-            getBatchInfo(gs1Data.gtin, gs1Data.batchNumber, (err, batch) => {
+            getBatchInfo(gs1Data,  (err, batch) => {
                 if (err)
                     console.log(`Could not read batch data`, err);
                 else
@@ -353,9 +329,9 @@ export default class HomeController extends WebcController{
                 // Then, construct a cv.Mat:
                 let src = cv.matFromImageData(imgData);
                 var size = new cv.Size(src.cols, src.rows);
-        
                 // Apply edges
                 // let edges = tm.getMergedEdges(src)
+
                 let edges = tm.getEdges(src);
                 
                 // Apply contours
