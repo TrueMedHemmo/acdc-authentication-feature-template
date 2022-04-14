@@ -4,7 +4,6 @@ addfolder node_modules/@ionic/core/dist/ionic code/ionic/dist
 addfolder node_modules/@ionic/core/css code/ionic/css
 addfolder node_modules/ionicons/dist/ionicons code/ionic/icons
 addfile node_modules/opencv.js/opencv.js code/opencv.js
-addfile node_modules/socket.io-client/dist/socket.io.msgpack.min.js code/socket.io.msgpack.min.js
 addfile ../privatesky/psknode/bundles/pskruntime.js code/scripts/bundles/pskruntime.js
 addfile ../privatesky/psknode/bundles/webshims.js code/scripts/bundles/webshims.js
 addfile ../privatesky/psknode/bundles/iframeBoot.js code/scripts/bundles/iframeBoot.js
