@@ -1,3 +1,9 @@
 delete /
 addfolder src
+addfile ../privatesky/psknode/bundles/pskruntime.js code/scripts/bundles/pskruntime.js
+addfile ../privatesky/psknode/bundles/webshims.js code/scripts/bundles/webshims.js
+addfile ../privatesky/psknode/bundles/iframeBoot.js code/scripts/bundles/iframeBoot.js
+addfile ../gtin-resolver/build/bundles/gtinResolver.js code/scripts/bundles/gtinResolver.js
+addfolder ../acdc/pdm-web-components/dist/pdm-web-components code/assets/pdm-web-components
+addfile ../acdc/pdm-web-components/css/globalStyles.css code/assets/skin.css
 mount ../webcardinal/seed /code/webcardinal
