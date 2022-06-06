@@ -55,12 +55,12 @@
                 <progress-ring style="position:absolute;transform: translate(-50%, -50%);left:50%;top:50%;" :radius="60" :progress="progress" :stroke="3"></progress-ring>
             -->
         </div>
-        <div id="content" style="text-align:center;">
-            <img id="taken-picture-1" style="width:15%;height:auto;margin:0;padding:0;"></img>
-            <img id="taken-picture-2" style="width:15%;height:auto;margin:0;padding:0;"></img>
-            <img id="taken-picture-3" style="width:15%;height:auto;margin:0;padding:0;"></img>
-            <img id="taken-picture-4" style="width:15%;height:auto;margin:0;padding:0;"></img>
-            <img id="taken-picture-5" style="width:15%;height:auto;margin:0;padding:0;"></img>
+        <div id="content" style="text-align:center;opacity:0;">
+            <img id="taken-picture-1"></img>
+            <img id="taken-picture-2"></img>
+            <img id="taken-picture-3"></img>
+            <img id="taken-picture-4"></img>
+            <img id="taken-picture-5"></img>
         </div>
         <div id="crop-view" style="display:none;background-color:white;position:absolute;top:0;left:0;width:100%;height:100%;">
             <div style="background-color:#FFF;padding:20px;">Please review that the images have been cropped correctly and then hit send.</div>
@@ -88,6 +88,7 @@
         
         
         <div id="upload-view" style="display:block;background-color:white;position:absolute;top:0;left:0;width:100%;height:100%;">
+            <canvas id="imgProcCanvas" style="display:none;"></canvas>
             <div class="tm-loader-positioning">
                 <div class="tm-loader"></div>
             </div>

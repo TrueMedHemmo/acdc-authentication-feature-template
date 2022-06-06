@@ -270,17 +270,12 @@ export default class HomeController extends WebcController{
     }
 
     setProduct(packageHeight, packageWidth){
-        //let packageWidth = 174;//78;
-        //let packageHeight = 50;//58;
 
         let scaleModifier = 0.6;
 
         //Physically the package will be flipped 90 degrees while scanning, so we use flipped values
         this.targetHeight = packageWidth * 0.602 * scaleModifier; // 47/78 =
         this.targetWidth = packageHeight * 0.776 * scaleModifier;//45; // 45/58=
-
-        //let canvasHeight = this.elements.canvas.clientHeight;
-        //let canvasWidth = this.elements.canvas.clientWidth;
 
         // Funnily enough, for the box we need the opposite, because we rotate it in CSS
         let targetBoxWidth = packageWidth * 0.776 * scaleModifier;
@@ -319,19 +314,19 @@ export default class HomeController extends WebcController{
             this.framesReceived++;
             this.cumulativeElapsedTime += elapsedTime;
 
-            //
+            //Set image to Canvas
             this.placeUint8RGBArrayInCanvas(this.elements.canvas, new Uint8Array(rgbImage.arrayBuffer), rgbImage.width, rgbImage.height);
 
             let context = this.elements.canvas.getContext("2d");
             let imgData = context.getImageData(0, 0, this.elements.canvas.width, this.elements.canvas.height);
         
+            // Img processing loop only executed when capture eval is needed
             if(!this.pauseProcessing){
                 // Then, construct a cv.Mat:
                 let src = cv.matFromImageData(imgData);
                 var size = new cv.Size(src.cols, src.rows);
-                // Apply edges
-                // let edges = tm.getMergedEdges(src)
 
+                // Apply edges
                 let edges = tm.getEdges(src);
                 
                 // Apply contours
@@ -489,11 +484,13 @@ export default class HomeController extends WebcController{
         this.progress = 0;
         let self = this;
         this.takenPictures[this.imageIndex].onload = function() {
+            console.log(self.takenPictures[self.imageIndex]);
             self.processPhoto(self.takenPictures[self.imageIndex], self.imageIndex).then(()=>{
                 self.takenPictures[self.imageIndex].remove()
                 self.imageIndex++;
                 self.elements.progressText.innerHTML = self.imageIndex + " / 5";
-                // Last image taken, let's begin transitioning to crop view
+
+                // Proceed when last image taken, let's begin transitioning to crop stage
                 if (self.imageIndex > 4) {
                     self.pauseProcessing = true;
                     self.imageIndex = 0;
@@ -529,10 +526,14 @@ export default class HomeController extends WebcController{
     async cropProcess(index) {
             var image = new Image();
             let self = this;
+
+            // Define image onload event
             image.onload = function() {
                 self.processPhoto(image, index).then(()=>{
+                    // More images to be procssed, loop self
                     if(index+1 < self.images.length){
                         self.cropProcess(index+1);
+                    // All images processed, time to close up and send data to analysis
                     }else{
                         self.Camera.registerHandlers(
                             null,
@@ -543,17 +544,25 @@ export default class HomeController extends WebcController{
                     }
                 });
             };
+
+            // Load up image to be processed
             image.src = this.images[index];
     }
 
     async processPhoto(image, index){
+        console.log("img width:"+image.width);
+        console.log("img height:"+image.height)
+
+        // Dedicated canvas for image cropping, set its values
         this.elements.imgProcCanvas.width = image.width;
         this.elements.imgProcCanvas.height = image.height;
         let context = this.elements.imgProcCanvas.getContext("2d");
+
+        // Draw image on the canvas
         context.drawImage(image, 0, 0);
         let imgData = context.getImageData(0, 0, this.elements.imgProcCanvas.width, this.elements.imgProcCanvas.height);
         
-        // Then, construct a cv.Mat:
+        // Then, construct a cv.Mat from image collected:
         let srcFull = cv.matFromImageData(imgData);
         let src = cv.matFromImageData(imgData);
 
@@ -562,18 +571,23 @@ export default class HomeController extends WebcController{
         let right = srcFull.cols-1;
         let bottom = srcFull.rows-1;
 
-        let width = Math.floor(src.cols/8);
-        let height = Math.floor(src.rows/8);
+        let downScaleFactor = 2;
+
+        // Resize image for crop analysis to make it faster
+        let width = Math.floor(src.cols/downScaleFactor);
+        let height = Math.floor(src.rows/downScaleFactor);
         var size = new cv.Size(width, height);
         cv.resize(src, src, size, 0, 0, cv.INTER_AREA);
 
         // Apply edges
-        // let edges = tm.getMergedEdges(src)
         let edges = tm.getEdges(src);
 
-        // Apply contours
+        // Get contours from edges
         let contours = tm.getContoursForEdges(edges);
+
+        // Clean up edges from memory
         edges.delete();
+
         // Find largest shapes if any discovered
         if (contours.size() > 0) {
             let bounds = new cv.Rect(5, 5, size.width - 5, size.height - 5);
@@ -609,10 +623,10 @@ export default class HomeController extends WebcController{
                     
                     let safeMargin = 100; //100 px safety margin
 
-                    left = left*8 - safeMargin;
-                    top = top*8 - safeMargin;
-                    right = right*8 + safeMargin;
-                    bottom = bottom*8 + safeMargin;
+                    left = left*downScaleFactor - safeMargin;
+                    top = top*downScaleFactor - safeMargin;
+                    right = right*downScaleFactor + safeMargin;
+                    bottom = bottom*downScaleFactor + safeMargin;
 
                     let black = new cv.Scalar(0, 0, 0, 255);
 
@@ -628,15 +642,16 @@ export default class HomeController extends WebcController{
         }
 
         // Downscale output to reduce upload times and memory requirements
-        width = Math.floor(srcFull.cols/2);
-        height = Math.floor(srcFull.rows/2);
+        width = Math.floor(srcFull.cols/1);
+        height = Math.floor(srcFull.rows/1);
         var size = new cv.Size(width, height);
         cv.resize(srcFull, srcFull, size, 0, 0, cv.INTER_AREA);
 
+        // Images need to be flipped around a bit to make things look right
         cv.transpose(srcFull, srcFull);
         cv.flip(srcFull, srcFull, 0);
-        this.elements.canvas.width = width/2;
-        this.elements.canvas.height = height/2;
+        this.elements.imgProcCanvas.width = width;
+        this.elements.imgProcCanvas.height = height;
 
         cv.imshow('imgProcCanvas', srcFull);
         srcFull.delete();
