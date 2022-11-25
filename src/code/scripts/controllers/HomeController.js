@@ -449,14 +449,13 @@ export default class HomeController extends WebcController{
 
     onPictureTaken(base64ImageData){
         this.images.push(base64ImageData);
-        this.takingPicture = false;
-        this.progress = 0;
         let self = this;
         this.takenPictures[this.imageIndex].onload = function() {
-            console.log(self.takenPictures[self.imageIndex]);
             self.processPhoto(self.takenPictures[self.imageIndex], self.imageIndex).then(()=>{
                 self.takenPictures[self.imageIndex].remove()
                 self.imageIndex++;
+                self.takingPicture = false;
+                self.progress = 0;
                 self.elements.progressText.innerHTML = self.imageIndex + " / 5";
 
                 // Proceed when last image taken, let's begin transitioning to crop stage
@@ -519,8 +518,6 @@ export default class HomeController extends WebcController{
     }
 
     async processPhoto(image, index){
-        console.log("img width:"+image.width);
-        console.log("img height:"+image.height)
 
         // Dedicated canvas for image cropping, set its values
         this.elements.imgProcCanvas.width = image.width;
