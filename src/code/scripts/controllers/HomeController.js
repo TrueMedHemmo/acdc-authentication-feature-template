@@ -1,7 +1,7 @@
 import interpretGS1scan from "../utils/interpretGS1scan/interpretGS1scan.js";
 import tm from "../../tm.js";
 const {WebcController} = WebCardinal.controllers;
-const {constants, THREE, PLCameraConfig} = window.Native.Camera;
+const {PLCameraConfig} = window.Native.Camera;
 
 const api = "https://api-pl.truemed.cloud/v1.0";
 const apiKey = "<API-KEY-HERE>";
@@ -56,22 +56,6 @@ const getQueryStringParams = () => {
         : {}
 };
 
-const getProductInfo = async function(gtinFields, callback){
-    const gtinResolver = require('gtin-resolver');
-    const leafletInfoService = gtinResolver.LeafletInfoService;
-
-    let service = await leafletInfoService.init(gtinFields, gtinFields.domain || "epi");
-    service.readProductData(callback);
-}
-
-const getBatchInfo = async function(gtinFields,  callback){
-    const gtinResolver = require('gtin-resolver');
-    const leafletInfoService = gtinResolver.LeafletInfoService;
-
-    let service = await leafletInfoService.init(gtinFields, gtinFields.domain || "epi");
-    service.readBatchData(callback);
-}
-
 function compareY (a, b) {
     if (a.y < b.y) {
         return -1;
@@ -121,13 +105,9 @@ export default class HomeController extends WebcController{
 
     constructor(element, history, ...args) {
         super(element, history, ...args);
-
-        
-
         // Initiating core
         const gs1Data = getQueryStringParams();
         this.model.gs1Data = gs1Data;
-        const self = this;
         
         // Initiating TrueMed related
         this.takingPicture = false;
@@ -171,20 +151,6 @@ export default class HomeController extends WebcController{
         this.onTagClick('send', () => {
             this.sendForAnalysis();
         })
-
-        // Retrieve product based on code
-        getProductInfo(gs1Data, (err, product) => {
-            if (err)
-                console.log(`Could not read product info`, err);
-            else
-                self.model.product = product;
-            getBatchInfo(gs1Data,  (err, batch) => {
-                if (err)
-                    console.log(`Could not read batch data`, err);
-                else
-                    self.model.batch = batch;
-            });
-        });
 
         // Camera related inits
         this.Camera = window.Native.Camera;
@@ -800,10 +766,14 @@ export default class HomeController extends WebcController{
         
         xhr.addEventListener("readystatechange", function() {
             if(this.readyState === 4) {
-                const response = JSON.parse(this.responseText);
-                
-                const product = response.data.trace_code.product.public_id;
-                self.getInstance(product);
+                try{
+                    const response = JSON.parse(this.responseText);
+
+                    const product = response.data.trace_code.product.public_id;
+                    self.getInstance(product);
+                }catch(err){
+                    console.log("Unexpected error during response parsing", err);
+                }
             }
         });
 
@@ -898,8 +868,6 @@ export default class HomeController extends WebcController{
         });
     }
 
-
-
     async scanCode(callback){
         const self = this;
         await self.barcodeScannerController.present((err, scanData) => err
@@ -940,4 +908,3 @@ export default class HomeController extends WebcController{
         this.element.dispatchEvent(event);
     }
 }
-
