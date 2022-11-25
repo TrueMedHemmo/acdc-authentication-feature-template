@@ -181,6 +181,8 @@ export default class HomeController extends WebcController{
 
         this.elements.progressCircle.style.strokeDasharray = `${this.circumference} ${this.circumference}`;
         this.elements.progressCircle.style.strokeDashoffset = `${this.circumference}`;
+
+        this.elements.loader = this.element.querySelector('.tm-loader');
         
         for(let i = 1; i < 6; i++){
             let selector = '#taken-picture-'+i;
@@ -735,13 +737,21 @@ export default class HomeController extends WebcController{
                 }else{
                     const result = response.data.scan_result;
                     //TODO: Catch errors from AI...
+                    
+                    self.elements.loader.style.display = "none";
 
                     // Authentic
                     if(result.confidence == 100){
-                        self.report(true, undefined);
+                        self.setLoaderText("Authentication successful!");
+
+                        setTimeout(function() {self.report(true, undefined);}, 3000);
+                        
                     // Counterfeit
                     }else{
-                        self.report(false, "Product is not valid");
+                        self.setLoaderText("Authentication failed");
+
+                        setTimeout(function() {self.report(false, "Product is not valid");}, 3000);
+                        
                     }
                 }
             }
