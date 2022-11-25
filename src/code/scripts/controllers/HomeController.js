@@ -108,6 +108,7 @@ export default class HomeController extends WebcController{
         // Initiating core
         const gs1Data = getQueryStringParams();
         this.model.gs1Data = gs1Data;
+        const self = this;
         
         // Initiating TrueMed related
         this.takingPicture = false;
@@ -239,7 +240,7 @@ export default class HomeController extends WebcController{
 
     setProduct(packageHeight, packageWidth){
 
-        let scaleModifier = 0.6;
+        let scaleModifier = 0.7;
 
         //Physically the package will be flipped 90 degrees while scanning, so we use flipped values
         this.targetHeight = packageWidth * 0.602 * scaleModifier; // 47/78 =
