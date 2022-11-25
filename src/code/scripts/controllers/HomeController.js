@@ -537,7 +537,7 @@ export default class HomeController extends WebcController{
         let right = srcFull.cols-1;
         let bottom = srcFull.rows-1;
 
-        let downScaleFactor = 4;
+        let downScaleFactor = 2;
 
         // Resize image for crop analysis to make it faster
         let width = Math.floor(src.cols/downScaleFactor);
