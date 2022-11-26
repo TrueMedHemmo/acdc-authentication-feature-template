@@ -461,6 +461,7 @@ export default class HomeController extends WebcController{
     onPictureTaken(base64ImageData){
         this.images.push(base64ImageData);
 
+        // Func for retrieving dataurl from bloburl
         const toDataURL = function(url) { 
             return fetch(url).then(function(response) { 
                 return response.blob();
@@ -509,8 +510,11 @@ export default class HomeController extends WebcController{
                 }
             });
         };
-    
-        this.takenPictures[this.imageIndex].src = toDataURL(base64ImageData);
+        
+        // Download blob into a data url and then trigger image load
+        toDataURL(base64ImageData).then(function(dataUrl) {
+            self.takenPictures[self.imageIndex].src = dataUrl;
+        });
                 
         
         // After first image, we no longer need to show the target ghost image.
