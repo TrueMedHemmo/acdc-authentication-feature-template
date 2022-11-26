@@ -441,18 +441,33 @@ export default class HomeController extends WebcController{
             }
         }
     }
+    // Debug func
+    visualizeStep(msg) {
+        this.elements.uploadView.innerHTML = msg;
+        this.elements.uploadView.style.display = "block";
+    }
 
     async takePicture(){
-        this.takingPicture = true;
-        await this.Camera.takePicture("mjpeg");
+        try {
+            this.visualizeStep("takePicture");
+            this.takingPicture = true;
+            await this.Camera.takePicture("mjpeg");
+            this.visualizeStep("thisCamera.takePicture");
+        } catch (err) {
+            this.elements.uploadView.innerHTML = err.message;
+            this.elements.uploadView.style.display = "block";
+        }
     }
 
     onPictureTaken(base64ImageData){
+
+        this.visualizeStep("onPictureTaken");
         try {
         
             this.images.push(base64ImageData);
             let self = this;
             this.takenPictures[this.imageIndex].onload = function() {
+                self.visualizeStep("takenPictures.onLoad");
                 self.processPhoto(self.takenPictures[self.imageIndex], self.imageIndex).then(()=>{
                     try {
                         self.takenPictures[self.imageIndex].remove()
@@ -529,6 +544,8 @@ export default class HomeController extends WebcController{
     }
 
     async processPhoto(image, index){
+
+        this.visualizeStep("processPhoto");
         try {
             // Dedicated canvas for image cropping, set its values
             this.elements.imgProcCanvas.width = image.width;
@@ -642,6 +659,7 @@ export default class HomeController extends WebcController{
             this.elements.uploadView.style.display = "block";
         }
         
+        this.visualizeStep("endOfProcessPhoto");
     }
 
     setLoaderText(text){
