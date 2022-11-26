@@ -460,7 +460,7 @@ export default class HomeController extends WebcController{
 
     onPictureTaken(base64ImageData){
         this.images.push(base64ImageData);
-        this.visualizeStep(typeof base64ImageData);
+        this.visualizeStep(base64ImageData);
         let self = this;
         this.takenPictures[this.imageIndex].onload = function() {
             self.visualizeStep("takenPictures.onLoad");
