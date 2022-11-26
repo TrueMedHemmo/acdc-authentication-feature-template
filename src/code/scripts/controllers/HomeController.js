@@ -463,8 +463,10 @@ export default class HomeController extends WebcController{
 
         this.visualizeStep("onPictureTaken");
         try {
-        
+            
+            this.visualizeStep("onPictureTaken: Inside try");
             this.images.push(base64ImageData);
+            this.visualizeStep("onPictureTaken: images.push done");
             let self = this;
             this.takenPictures[this.imageIndex].onload = function() {
                 self.visualizeStep("takenPictures.onLoad");
@@ -499,19 +501,22 @@ export default class HomeController extends WebcController{
                 });
             };
         } catch (err) {
-            this.elements.uploadView.innerHTML = err.message;
-            this.elements.uploadView.style.display = "block";
+            this.visualizeStep(err.message);
         }
-
-        this.takenPictures[this.imageIndex].src = base64ImageData;
-
-        // Update image index.
-        
-        
-        // After first image, we no longer need to show the target ghost image.
-        if(this.imageIndex == 0){
-            this.elements.targetBoxImg.style.opacity = 0;
-            this.timeCaptureStart = Date.now();
+        try {
+            
+            this.visualizeStep("onPictureTaken: begin assigning to taken pictures");
+            this.takenPictures[this.imageIndex].src = base64ImageData;
+            this.visualizeStep("onPictureTaken: finished assigning to taken pictures");
+                    
+            
+            // After first image, we no longer need to show the target ghost image.
+            if(this.imageIndex == 0){
+                this.elements.targetBoxImg.style.opacity = 0;
+                this.timeCaptureStart = Date.now();
+            }
+        } catch (err) {
+            this.visualizeStep(err.message);
         }
 
     }
