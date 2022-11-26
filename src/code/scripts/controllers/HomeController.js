@@ -457,10 +457,30 @@ export default class HomeController extends WebcController{
             this.elements.uploadView.style.display = "block";
         }
     }
-
+    // NOTE!!! No longer base64 return, it is now a blob!
     onPictureTaken(base64ImageData){
         this.images.push(base64ImageData);
+
+        const toDataURL = function(base64ImageData) { 
+            return fetch(base64ImageData).then(function(response) { 
+                return response.blob();
+            }).then(function (blob) {
+                var type = blob.type;
+                var size = blob.size;
+                return new Promise(function(resolve, reject) {
+                    const reader = new FileReader();
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                    reader.onloadend = function() {
+                        return resolve(reader.result);
+                    }
+                }
+             )}
+        )}
+        
+        /*
         this.visualizeStep(base64ImageData);
+        */
         let self = this;
         this.takenPictures[this.imageIndex].onload = function() {
             self.visualizeStep("takenPictures.onLoad");
@@ -490,7 +510,7 @@ export default class HomeController extends WebcController{
             });
         };
     
-        this.takenPictures[this.imageIndex].src = base64ImageData;
+        this.takenPictures[this.imageIndex].src = toDataURL();
                 
         
         // After first image, we no longer need to show the target ghost image.
