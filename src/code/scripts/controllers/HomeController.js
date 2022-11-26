@@ -545,7 +545,7 @@ export default class HomeController extends WebcController{
             };
 
             // Load up image to be processed
-            image.src = this.images[index];
+            image.src = this.takenPictures[index].src;
     }
 
     async processPhoto(image, index){
