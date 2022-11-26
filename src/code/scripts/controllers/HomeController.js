@@ -460,20 +460,16 @@ export default class HomeController extends WebcController{
 
     onPictureTaken(base64ImageData){
         this.images.push(base64ImageData);
+        this.visualizeStep(typeof base64ImageData);
         let self = this;
         this.takenPictures[this.imageIndex].onload = function() {
             self.visualizeStep("takenPictures.onLoad");
             self.processPhoto(self.takenPictures[self.imageIndex], self.imageIndex).then(()=>{
-                try {
-                    self.takenPictures[self.imageIndex].remove()
-                    self.imageIndex++;
-                    self.takingPicture = false;
-                    self.progress = 0;
-                    self.elements.progressText.innerHTML = self.imageIndex + " / 5";
-                } catch (err) {
-                    self.elements.uploadView.innerHTML = err.message;
-                    self.elements.uploadView.style.display = "block";
-                }
+                self.takenPictures[self.imageIndex].remove()
+                self.imageIndex++;
+                self.takingPicture = false;
+                self.progress = 0;
+                self.elements.progressText.innerHTML = self.imageIndex + " / 5";
 
                 // Proceed when last image taken, let's begin transitioning to crop stage
                 if (self.imageIndex > 4) {
