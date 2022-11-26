@@ -450,7 +450,6 @@ export default class HomeController extends WebcController{
 
     async takePicture(){
         try {
-            this.visualizeStep("takePicture");
             this.takingPicture = true;
             await this.Camera.takePicture("mjpeg");
         } catch (err) {
