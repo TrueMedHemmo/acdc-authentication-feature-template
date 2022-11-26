@@ -448,34 +448,45 @@ export default class HomeController extends WebcController{
     }
 
     onPictureTaken(base64ImageData){
-        this.images.push(base64ImageData);
-        let self = this;
-        this.takenPictures[this.imageIndex].onload = function() {
-            self.processPhoto(self.takenPictures[self.imageIndex], self.imageIndex).then(()=>{
-                self.takenPictures[self.imageIndex].remove()
-                self.imageIndex++;
-                self.takingPicture = false;
-                self.progress = 0;
-                self.elements.progressText.innerHTML = self.imageIndex + " / 5";
-
-                // Proceed when last image taken, let's begin transitioning to crop stage
-                if (self.imageIndex > 4) {
-                    self.pauseProcessing = true;
-                    self.imageIndex = 0;
-
-                    setTimeout(function() {
-                        //self.Camera.closeCameraStream();
-                        self.Camera.nativeBridge.setFlashModeNativeCamera("off");
-                        self.stopRendering = true;
-                        //self.Camera.nativeBridge.stopNativeCamera();
-                        self.elements.cropView.style.display = "block";
+        try {
+        
+            this.images.push(base64ImageData);
+            let self = this;
+            this.takenPictures[this.imageIndex].onload = function() {
+                self.processPhoto(self.takenPictures[self.imageIndex], self.imageIndex).then(()=>{
+                    try {
+                        self.takenPictures[self.imageIndex].remove()
+                        self.imageIndex++;
+                        self.takingPicture = false;
+                        self.progress = 0;
+                        self.elements.progressText.innerHTML = self.imageIndex + " / 5";
+                    } catch (err) {
+                        self.elements.uploadView.innerHTML = err.message;
                         self.elements.uploadView.style.display = "block";
-                        self.setLoaderText("Preparing images...");
-                        self.sendForAnalysis();
-                    }, 1000);
-                }
-            });
-        };
+                    }
+
+                    // Proceed when last image taken, let's begin transitioning to crop stage
+                    if (self.imageIndex > 4) {
+                        self.pauseProcessing = true;
+                        self.imageIndex = 0;
+
+                        setTimeout(function() {
+                            //self.Camera.closeCameraStream();
+                            self.Camera.nativeBridge.setFlashModeNativeCamera("off");
+                            self.stopRendering = true;
+                            //self.Camera.nativeBridge.stopNativeCamera();
+                            self.elements.cropView.style.display = "block";
+                            self.elements.uploadView.style.display = "block";
+                            self.setLoaderText("Preparing images...");
+                            self.sendForAnalysis();
+                        }, 1000);
+                    }
+                });
+            };
+        } catch (err) {
+            this.elements.uploadView.innerHTML = err.message;
+            this.elements.uploadView.style.display = "block";
+        }
 
         this.takenPictures[this.imageIndex].src = base64ImageData;
 
@@ -518,114 +529,118 @@ export default class HomeController extends WebcController{
     }
 
     async processPhoto(image, index){
+        try {
+            // Dedicated canvas for image cropping, set its values
+            this.elements.imgProcCanvas.width = image.width;
+            this.elements.imgProcCanvas.height = image.height;
+            let context = this.elements.imgProcCanvas.getContext("2d");
 
-        // Dedicated canvas for image cropping, set its values
-        this.elements.imgProcCanvas.width = image.width;
-        this.elements.imgProcCanvas.height = image.height;
-        let context = this.elements.imgProcCanvas.getContext("2d");
+            // Draw image on the canvas
+            context.drawImage(image, 0, 0);
+            let imgData = context.getImageData(0, 0, this.elements.imgProcCanvas.width, this.elements.imgProcCanvas.height);
+            
+            // Then, construct a cv.Mat from image collected:
+            let srcFull = cv.matFromImageData(imgData);
+            let src = cv.matFromImageData(imgData);
 
-        // Draw image on the canvas
-        context.drawImage(image, 0, 0);
-        let imgData = context.getImageData(0, 0, this.elements.imgProcCanvas.width, this.elements.imgProcCanvas.height);
-        
-        // Then, construct a cv.Mat from image collected:
-        let srcFull = cv.matFromImageData(imgData);
-        let src = cv.matFromImageData(imgData);
+            let top = 0;
+            let left = 0;
+            let right = srcFull.cols-1;
+            let bottom = srcFull.rows-1;
 
-        let top = 0;
-        let left = 0;
-        let right = srcFull.cols-1;
-        let bottom = srcFull.rows-1;
+            let downScaleFactor = 2;
 
-        let downScaleFactor = 2;
+            // Resize image for crop analysis to make it faster
+            let width = Math.floor(src.cols/downScaleFactor);
+            let height = Math.floor(src.rows/downScaleFactor);
+            var size = new cv.Size(width, height);
+            cv.resize(src, src, size, 0, 0, cv.INTER_AREA);
 
-        // Resize image for crop analysis to make it faster
-        let width = Math.floor(src.cols/downScaleFactor);
-        let height = Math.floor(src.rows/downScaleFactor);
-        var size = new cv.Size(width, height);
-        cv.resize(src, src, size, 0, 0, cv.INTER_AREA);
+            // Apply edges
+            let edges = tm.getEdges(src);
 
-        // Apply edges
-        let edges = tm.getEdges(src);
+            // Get contours from edges
+            let contours = tm.getContoursForEdges(edges);
 
-        // Get contours from edges
-        let contours = tm.getContoursForEdges(edges);
+            // Clean up edges from memory
+            edges.delete();
 
-        // Clean up edges from memory
-        edges.delete();
+            // Find largest shapes if any discovered
+            if (contours.size() > 0) {
+                let bounds = new cv.Rect(5, 5, size.width - 5, size.height - 5);
+                let verticalBounds = true;
+                let horizontalBounds = true;
+                let largestContours = tm.getLargestContourIDs(contours, bounds, verticalBounds, horizontalBounds);
 
-        // Find largest shapes if any discovered
-        if (contours.size() > 0) {
-            let bounds = new cv.Rect(5, 5, size.width - 5, size.height - 5);
-            let verticalBounds = true;
-            let horizontalBounds = true;
-            let largestContours = tm.getLargestContourIDs(contours, bounds, verticalBounds, horizontalBounds);
-
-            // If we found large contours
-            if (largestContours.length > 0) {
-                
-                let corners = tm.getCornersForContour(contours.get(largestContours[0]));
-                if (corners != null) {
-        
-                    let points = [];
-                    for (let i = 0; i < corners.size(); ++i) {
-                        const ci = corners.get(i);
-                        for (let j = 0; j < ci.data32S.length; j += 2) {
-                            let p = {};
-                            p.x = ci.data32S[j];
-                            p.y = ci.data32S[j + 1];
-                            points.push(p);
-                        }
-                    }
-                    // Sort points so topmost points are first
-                    points.sort(compareY);
-                    top = points[0].y;
-                    bottom = points[points.length-1].y;
-        
-                    // Sort points so that leftmost points are first
-                    points.sort(compareX);
-                    left = points[0].x;
-                    right = points[points.length-1].x;
+                // If we found large contours
+                if (largestContours.length > 0) {
                     
-                    let safeMargin = 100; //100 px safety margin
+                    let corners = tm.getCornersForContour(contours.get(largestContours[0]));
+                    if (corners != null) {
+            
+                        let points = [];
+                        for (let i = 0; i < corners.size(); ++i) {
+                            const ci = corners.get(i);
+                            for (let j = 0; j < ci.data32S.length; j += 2) {
+                                let p = {};
+                                p.x = ci.data32S[j];
+                                p.y = ci.data32S[j + 1];
+                                points.push(p);
+                            }
+                        }
+                        // Sort points so topmost points are first
+                        points.sort(compareY);
+                        top = points[0].y;
+                        bottom = points[points.length-1].y;
+            
+                        // Sort points so that leftmost points are first
+                        points.sort(compareX);
+                        left = points[0].x;
+                        right = points[points.length-1].x;
+                        
+                        let safeMargin = 100; //100 px safety margin
 
-                    left = left*downScaleFactor - safeMargin;
-                    top = top*downScaleFactor - safeMargin;
-                    right = right*downScaleFactor + safeMargin;
-                    bottom = bottom*downScaleFactor + safeMargin;
+                        left = left*downScaleFactor - safeMargin;
+                        top = top*downScaleFactor - safeMargin;
+                        right = right*downScaleFactor + safeMargin;
+                        bottom = bottom*downScaleFactor + safeMargin;
 
-                    let black = new cv.Scalar(0, 0, 0, 255);
+                        let black = new cv.Scalar(0, 0, 0, 255);
 
-                    // Masking
-                    cv.rectangle(srcFull, new cv.Point(0, 0), new cv.Point(left, srcFull.rows-1), black, -1);
-                    cv.rectangle(srcFull, new cv.Point(0, 0), new cv.Point(srcFull.cols-1, top), black, -1);
-                    cv.rectangle(srcFull, new cv.Point(right, 0), new cv.Point(srcFull.cols-1, srcFull.rows-1), black, -1);
-                    cv.rectangle(srcFull, new cv.Point(0, bottom), new cv.Point(srcFull.cols-1, srcFull.rows-1), black, -1);
+                        // Masking
+                        cv.rectangle(srcFull, new cv.Point(0, 0), new cv.Point(left, srcFull.rows-1), black, -1);
+                        cv.rectangle(srcFull, new cv.Point(0, 0), new cv.Point(srcFull.cols-1, top), black, -1);
+                        cv.rectangle(srcFull, new cv.Point(right, 0), new cv.Point(srcFull.cols-1, srcFull.rows-1), black, -1);
+                        cv.rectangle(srcFull, new cv.Point(0, bottom), new cv.Point(srcFull.cols-1, srcFull.rows-1), black, -1);
 
-                    corners.delete();
+                        corners.delete();
+                    }
                 }
             }
+
+            // Downscale output to reduce upload times and memory requirements
+            width = Math.floor(srcFull.cols/1);
+            height = Math.floor(srcFull.rows/1);
+            var size = new cv.Size(width, height);
+            cv.resize(srcFull, srcFull, size, 0, 0, cv.INTER_AREA);
+
+            // Images need to be flipped around a bit to make things look right
+            cv.transpose(srcFull, srcFull);
+            cv.flip(srcFull, srcFull, 0);
+            this.elements.imgProcCanvas.width = width;
+            this.elements.imgProcCanvas.height = height;
+
+            cv.imshow('imgProcCanvas', srcFull);
+            srcFull.delete();
+            src.delete();
+            
+            let finalImg = this.elements.imgProcCanvas.toDataURL("image/jpeg");
+            //this.cropPictures[index].src = finalImg;
+            this.files.push(dataURLtoFile(finalImg, index+'.jpg'));
+        } catch (err) {
+            this.elements.uploadView.innerHTML = err.message;
+            this.elements.uploadView.style.display = "block";
         }
-
-        // Downscale output to reduce upload times and memory requirements
-        width = Math.floor(srcFull.cols/1);
-        height = Math.floor(srcFull.rows/1);
-        var size = new cv.Size(width, height);
-        cv.resize(srcFull, srcFull, size, 0, 0, cv.INTER_AREA);
-
-        // Images need to be flipped around a bit to make things look right
-        cv.transpose(srcFull, srcFull);
-        cv.flip(srcFull, srcFull, 0);
-        this.elements.imgProcCanvas.width = width;
-        this.elements.imgProcCanvas.height = height;
-
-        cv.imshow('imgProcCanvas', srcFull);
-        srcFull.delete();
-        src.delete();
-        
-        let finalImg = this.elements.imgProcCanvas.toDataURL("image/jpeg");
-        //this.cropPictures[index].src = finalImg;
-        this.files.push(dataURLtoFile(finalImg, index+'.jpg'));
         
     }
 
