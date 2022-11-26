@@ -460,63 +460,48 @@ export default class HomeController extends WebcController{
     }
 
     onPictureTaken(base64ImageData){
+        this.images.push(base64ImageData);
+        let self = this;
+        this.takenPictures[this.imageIndex].onload = function() {
+            self.visualizeStep("takenPictures.onLoad");
+            self.processPhoto(self.takenPictures[self.imageIndex], self.imageIndex).then(()=>{
+                try {
+                    self.takenPictures[self.imageIndex].remove()
+                    self.imageIndex++;
+                    self.takingPicture = false;
+                    self.progress = 0;
+                    self.elements.progressText.innerHTML = self.imageIndex + " / 5";
+                } catch (err) {
+                    self.elements.uploadView.innerHTML = err.message;
+                    self.elements.uploadView.style.display = "block";
+                }
 
-        this.visualizeStep("onPictureTaken");
-        try {
-            
-            this.visualizeStep("onPictureTaken: Inside try");
-            this.images.push(base64ImageData);
-            this.visualizeStep("onPictureTaken: images.push done");
-            let self = this;
-            this.takenPictures[this.imageIndex].onload = function() {
-                self.visualizeStep("takenPictures.onLoad");
-                self.processPhoto(self.takenPictures[self.imageIndex], self.imageIndex).then(()=>{
-                    try {
-                        self.takenPictures[self.imageIndex].remove()
-                        self.imageIndex++;
-                        self.takingPicture = false;
-                        self.progress = 0;
-                        self.elements.progressText.innerHTML = self.imageIndex + " / 5";
-                    } catch (err) {
-                        self.elements.uploadView.innerHTML = err.message;
+                // Proceed when last image taken, let's begin transitioning to crop stage
+                if (self.imageIndex > 4) {
+                    self.pauseProcessing = true;
+                    self.imageIndex = 0;
+
+                    setTimeout(function() {
+                        //self.Camera.closeCameraStream();
+                        self.Camera.nativeBridge.setFlashModeNativeCamera("off");
+                        self.stopRendering = true;
+                        //self.Camera.nativeBridge.stopNativeCamera();
+                        self.elements.cropView.style.display = "block";
                         self.elements.uploadView.style.display = "block";
-                    }
-
-                    // Proceed when last image taken, let's begin transitioning to crop stage
-                    if (self.imageIndex > 4) {
-                        self.pauseProcessing = true;
-                        self.imageIndex = 0;
-
-                        setTimeout(function() {
-                            //self.Camera.closeCameraStream();
-                            self.Camera.nativeBridge.setFlashModeNativeCamera("off");
-                            self.stopRendering = true;
-                            //self.Camera.nativeBridge.stopNativeCamera();
-                            self.elements.cropView.style.display = "block";
-                            self.elements.uploadView.style.display = "block";
-                            self.setLoaderText("Preparing images...");
-                            self.sendForAnalysis();
-                        }, 1000);
-                    }
-                });
-            };
-        } catch (err) {
-            this.visualizeStep(err.message);
-        }
-        try {
-            
-            this.visualizeStep("onPictureTaken: begin assigning to taken pictures");
-            this.takenPictures[this.imageIndex].src = base64ImageData;
-            this.visualizeStep("onPictureTaken: finished assigning to taken pictures");
-                    
-            
-            // After first image, we no longer need to show the target ghost image.
-            if(this.imageIndex == 0){
-                this.elements.targetBoxImg.style.opacity = 0;
-                this.timeCaptureStart = Date.now();
-            }
-        } catch (err) {
-            this.visualizeStep(err.message);
+                        self.setLoaderText("Preparing images...");
+                        self.sendForAnalysis();
+                    }, 1000);
+                }
+            });
+        };
+    
+        this.takenPictures[this.imageIndex].src = base64ImageData;
+                
+        
+        // After first image, we no longer need to show the target ghost image.
+        if(this.imageIndex == 0){
+            this.elements.targetBoxImg.style.opacity = 0;
+            this.timeCaptureStart = Date.now();
         }
 
     }
