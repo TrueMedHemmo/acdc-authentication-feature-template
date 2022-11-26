@@ -255,6 +255,7 @@ export default class HomeController extends WebcController{
     }
 
     onFrameGrabbed(plImage, elapsedTime){
+        this.visualizeStep("onFrameGrabbed");
 
     }
 
@@ -452,7 +453,6 @@ export default class HomeController extends WebcController{
             this.visualizeStep("takePicture");
             this.takingPicture = true;
             await this.Camera.takePicture("mjpeg");
-            this.visualizeStep("thisCamera.takePicture");
         } catch (err) {
             this.elements.uploadView.innerHTML = err.message;
             this.elements.uploadView.style.display = "block";
