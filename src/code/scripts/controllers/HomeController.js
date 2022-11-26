@@ -523,6 +523,7 @@ export default class HomeController extends WebcController{
         // Download blob into a data url and then trigger image load
         toDataURL(base64ImageData).then(function(dataUrl) {
             self.visualizeStep("dataurl gets assigned");
+            self.visualizeStep(dataUrl);
             self.takenPictures[self.imageIndex].src = dataUrl;
         });
                 
