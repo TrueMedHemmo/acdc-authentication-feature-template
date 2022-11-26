@@ -463,16 +463,24 @@ export default class HomeController extends WebcController{
 
         // Func for retrieving dataurl from bloburl
         const toDataURL = function(url) { 
+
+            self.visualizeStep("loading to dataURL");
             return fetch(url).then(function(response) { 
+                self.visualizeStep("returning blob");
                 return response.blob();
             }).then(function (blob) {
+
+                self.visualizeStep("blob return success");
                 var type = blob.type;
                 var size = blob.size;
                 return new Promise(function(resolve, reject) {
+
+                    self.visualizeStep("file reader activation");
                     const reader = new FileReader();
                     reader.onerror = reject;
                     reader.readAsDataURL(blob);
                     reader.onloadend = function() {
+                        self.visualizeStep("file reader resolves promise");
                         return resolve(reader.result);
                     }
                 }
@@ -511,8 +519,10 @@ export default class HomeController extends WebcController{
             });
         };
         
+        self.visualizeStep("callingtodataurl");
         // Download blob into a data url and then trigger image load
         toDataURL(base64ImageData).then(function(dataUrl) {
+            self.visualizeStep("dataurl gets assigned");
             self.takenPictures[self.imageIndex].src = dataUrl;
         });
                 
